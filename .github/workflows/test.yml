@@ -1,0 +1,207 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  brand-check:
+    name: Brand Consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version: 22
+      - run: node scripts/check-brand.mjs
+
+  backend-test:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./BE
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: sprintorio
+          POSTGRES_PASSWORD: sprintorio
+          POSTGRES_DB: sprintorio_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sprintorio"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v7.0.0
+
+      - uses: actions/setup-go@v6.4.0
+        with:
+          go-version-file: BE/go.mod
+          cache-dependency-path: BE/go.sum
+
+      - name: Apply database migrations
+        env:
+          DATABASE_URL: postgres://sprintorio:sprintorio@localhost:5432/sprintorio_test?sslmode=disable
+        run: go run ./cmd/server migrate up
+
+      - name: Run tests with coverage
+        env:
+          DATABASE_URL: postgres://sprintorio:sprintorio@localhost:5432/sprintorio_test?sslmode=disable
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: test-secret-that-is-at-least-32-characters-long
+        run: go test ./... -race -coverprofile=coverage.out -covermode=atomic -count=1
+
+      - name: Show coverage summary
+        run: go tool cover -func=coverage.out
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: backend-coverage
+          path: BE/coverage.out
+
+  docker-integration:
+    name: Docker Runtime Integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: ./BE
+
+    steps:
+      - uses: actions/checkout@v7.0.0
+
+      - uses: actions/setup-go@v6.4.0
+        with:
+          go-version-file: BE/go.mod
+          cache-dependency-path: BE/go.sum
+
+      - name: Configure quota-capable Docker storage
+        working-directory: .
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes xfsprogs
+          sudo systemctl stop docker.service docker.socket
+          sudo truncate --size 32G /var/lib/docker-integration.xfs
+          sudo mkfs.xfs -f /var/lib/docker-integration.xfs
+          sudo mkdir --parents /mnt/docker-integration
+          sudo mount --options loop,prjquota /var/lib/docker-integration.xfs /mnt/docker-integration
+
+          if sudo test -f /etc/docker/daemon.json; then
+            sudo jq '. + {"data-root": "/mnt/docker-integration"}' /etc/docker/daemon.json > /tmp/docker-daemon.json
+          else
+            jq --null-input '{"data-root": "/mnt/docker-integration"}' > /tmp/docker-daemon.json
+          fi
+          sudo install --mode 0644 /tmp/docker-daemon.json /etc/docker/daemon.json
+          sudo systemctl start docker.socket docker.service
+
+          backing_filesystem=$(docker info --format '{{range .DriverStatus}}{{if eq (index . 0) "Backing Filesystem"}}{{index . 1}}{{end}}{{end}}')
+          test "$backing_filesystem" = xfs
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4.2.0
+
+      - name: Build integration runtime images
+        working-directory: .
+        run: |
+          docker buildx build --pull --load --platform linux/amd64 --cache-from type=gha,scope=dev-machine-ide --tag sprintorio/dev-machine-ide:0.1.0 --file devmachine/ide/Dockerfile devmachine
+          docker buildx build --pull --load --platform linux/amd64 --cache-from type=gha,scope=dev-machine-browser --tag sprintorio/dev-machine-browser:0.1.0 --file devmachine/browser/Dockerfile devmachine
+          docker buildx build --pull --load --platform linux/amd64 --cache-from type=gha,scope=dev-machine-collector --tag sprintorio/dev-machine-collector:0.1.0 --file devmachine/collector/Dockerfile devmachine
+          docker buildx build --pull --load --platform linux/amd64 --cache-from type=gha,scope=dev-machine-egress --tag sprintorio/dev-machine-egress:0.1.0 --file devmachine/egress/Dockerfile devmachine
+          docker buildx build --pull --load --platform linux/amd64 --cache-from type=gha,scope=dev-machine-agent-claude --build-arg PROVIDER=claude-code --tag sprintorio/dev-machine-agent-claude:0.1.0 --file devmachine/agent/Dockerfile devmachine
+
+      - name: Run Docker lifecycle integration test
+        env:
+          SPRINTORIO_DOCKER_INTEGRATION: '1'
+        run: go test ./internal/machine -run '^TestDockerRuntimeLifecycle$' -race -count=1 -v -timeout=5m
+
+  frontend-check:
+    name: Frontend Checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./UI
+
+    steps:
+      - uses: actions/checkout@v7.0.0
+
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: UI/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Svelte check (type checking)
+        run: npm run check
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Application browser tests
+        run: npm run test:e2e
+
+      - name: Upload Playwright failure artifacts
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: ui-playwright-failure
+          path: |
+            UI/playwright-report
+            UI/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  web-check:
+    name: Marketing Site Checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./WEB
+
+    steps:
+      - uses: actions/checkout@v7.0.0
+
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: WEB/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Svelte check (type checking)
+        run: npm run check
+
+      - name: Build + SEO validation
+        run: npm run validate
+
+      - name: Install responsive-test browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Responsive layout tests
+        run: npm run test:responsive

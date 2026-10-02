@@ -1,0 +1,36 @@
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+vendor/
+
+# Node
+node_modules/
+
+# Build output
+dist/
+build/
+tmp/
+.svelte-kit/
+
+# Environment
+.env
+.dev.pids
+uploads/
+selfhosting/runtime/upgrading
+
+# Coverage
+coverage/
+/BE/coverage.out
+
+# OS
+.DS_Store
+
+# Editors
+.vscode/
+/.claude/settings.local.json
+test-results/
+
+playwright-report/

@@ -1,0 +1,83 @@
+<script lang="ts">
+	import StandalonePage from '$lib/components/StandalonePage.svelte';
+	import { DEV_MACHINES_RELEASE_STATUS } from '$lib/config/releases';
+	import { contentModifiedAt, url } from '$lib/config/site';
+	import { breadcrumbsFrom } from '$lib/data/routes';
+	import { useLatestRelease } from '$lib/release.svelte';
+
+	const release = useLatestRelease();
+
+	const meta = {
+		title: 'Sprintorio Roadmap and Development Status',
+		description: 'Sprintorio development status, known product gaps, the unreleased Dev Machines subsystem, and where to follow proposed work.',
+		canonical: url('/roadmap'),
+		modifiedAt: contentModifiedAt('/roadmap')
+	};
+
+	const crumbs = breadcrumbsFrom('roadmap', 'Roadmap');
+
+	const sections = $derived([
+		{
+			heading: 'No invented release dates',
+			body: 'Sprintorio does not publish committed release dates or promise features against version numbers. Open issues and merged pull requests are the reliable record of proposed and completed work. This page documents the current product boundary rather than a sales roadmap.',
+			list: [
+				'Open issues describe proposed work',
+				'Pull requests and releases describe shipped work',
+				'No feature on this page has a guaranteed delivery date',
+				'Last reviewed: October 2, 2026'
+			]
+		},
+		{
+			heading: `Current source build: ${release.version}`,
+			body: 'The current source build includes the issue workflow, workspace roles, teams, custom statuses, comments, sub-issues, relations, labels, cycles, projects, saved views, analytics, notifications, public sharing, webhooks and GitHub integration.',
+			list: [
+				'Cycle burndown and velocity charts',
+				'Project issue list and Gantt view',
+				'Workspace export/import with uploaded assets and regenerated entity IDs',
+				'Workspace insights, lifecycle metrics and burn-up trends',
+				'GitHub activity linking and configurable status transitions',
+				'WebSocket updates and issue presence'
+			]
+		},
+		{
+			heading: 'Product delivery workspace',
+			body: 'Projects bring together a persisted product brief, milestones and manual test cases. Readiness summarizes recorded statuses; the team decides whether the evidence is sufficient to release.',
+			list: ['Brief: name, objective, success metric and target release', 'Milestones: names, dates and completion status', 'Manual tests: steps, expected outcome, status and evidence', 'No automatic test execution or release certification']
+		},
+		{
+			heading: 'Known gaps',
+			body: 'These capabilities are not available in the current user interface. Their absence is documented so teams can evaluate Sprintorio against present requirements rather than future assumptions.',
+			list: [
+				'Enterprise identity: SSO, SAML, SCIM and LDAP',
+				'GitLab and chat integrations'
+			]
+		},
+		{
+			heading: `Dev Machines is ${DEV_MACHINES_RELEASE_STATUS.toLowerCase()} opt-in infrastructure`,
+			body: 'The source includes the opt-in multi-container Dev Machines subsystem, but no published release contains it yet. It adds Caddy wildcard ingress, an unprivileged authenticated gateway, a dedicated Docker manager, isolated machine networks, PostgreSQL reconciliation, scoped secrets, activity collection, issue-linked agent runs, and Claude Code, OpenCode, Codex, and custom CLI adapters. Self-hosted operators must explicitly configure the machine domain, TLS, runtime images, GitHub permissions, and capacity.',
+			list: [
+				'Disabled by default',
+				'Requires wildcard DNS and TLS',
+				'Trusted self-hosted workspace model'
+			]
+		},
+		{
+			heading: 'Follow or propose work',
+			body: 'Use the GitHub repository to review active work, report a reproducible bug or propose a feature with a concrete use case.',
+			list: [
+				'GitHub: github.com/metaforismo/sprintorio',
+				'Bug reports: include version, environment and reproduction steps',
+				'Feature requests: describe the workflow and expected outcome',
+				'Implementation status: verify merged code and release notes'
+			]
+		}
+	]);
+</script>
+
+<StandalonePage
+	{meta}
+	heading="Roadmap and Development Status"
+	intro="What Sprintorio implements now, what it does not implement, and where proposed work is tracked. There are no promised dates or invented release milestones."
+	{sections}
+	breadcrumbs={crumbs}
+/>

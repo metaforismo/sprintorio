@@ -1,0 +1,28 @@
+name: Product improvement
+description: Define a user problem and how to verify its solution.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem
+      description: Who needs this and what are they trying to do?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome and success metric
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria and test scenarios
+      description: Include relevant empty, failure, permissions, and mobile states.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and dependencies

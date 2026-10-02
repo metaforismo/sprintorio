@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" href="%sveltekit.assets%/favicon.svg" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Sprintorio</title>
+		<script>
+			(function() {
+				try {
+					var raw = localStorage.getItem('sprintorio-preferences');
+					var prefs = raw ? JSON.parse(raw) : {};
+					var mode = prefs.themeMode || 'dark';
+					if (mode === 'system') {
+						mode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+					}
+					var theme = mode === 'dark'
+						? (prefs.darkTheme || 'dark')
+						: (prefs.lightTheme || 'light');
+					var classes = theme;
+					if (prefs.pointerCursors !== false) {
+						classes += ' pointer-cursors';
+					}
+					document.documentElement.className = classes;
+					var fontMap = { small: '87.5%', default: '100%', large: '112.5%' };
+					var fs = fontMap[prefs.fontSize] || '100%';
+					document.documentElement.style.setProperty('--app-font-size', fs);
+				} catch (e) {
+					document.documentElement.className = 'dark pointer-cursors';
+					document.documentElement.style.setProperty('--app-font-size', '100%');
+				}
+			})();
+		</script>
+		%sveltekit.head%
+	</head>
+	<body data-sveltekit-preload-data="hover">
+		<div style="display: contents">%sveltekit.body%</div>
+	</body>
+</html>

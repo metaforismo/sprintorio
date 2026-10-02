@@ -1,0 +1,77 @@
+{$DOMAIN:localhost} {
+	handle /health {
+		reverse_proxy backend:8080
+	}
+
+	handle /ready {
+		reverse_proxy backend:8080
+	}
+
+	@upgrading file {
+		root /runtime
+		try_files /upgrading
+	}
+
+	handle /favicon.svg {
+		root * /srv
+		file_server
+	}
+
+	handle @upgrading {
+		root * /srv
+		header Cache-Control "no-store, max-age=0"
+		rewrite * /upgrading.html
+		file_server
+	}
+
+	# API and uploads — proxy to backend
+	handle /api/* {
+		reverse_proxy backend:8080
+	}
+
+	handle /uploads/* {
+		reverse_proxy backend:8080
+	}
+
+	# WebSocket support
+	handle /api/workspaces/*/ws {
+		reverse_proxy backend:8080
+	}
+
+	# Frontend — proxy to static file server
+	handle {
+		reverse_proxy frontend:3000
+	}
+}
+
+# Machine wildcard TLS
+#
+# Stock Caddy cannot issue wildcard certificates via HTTP-01 (Let's Encrypt).
+# Production operators must choose one of:
+#
+#   1. Custom Caddy build with a DNS-01 plugin:
+#      tls {
+#        dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+#      }
+#
+#   2. Mount an operator-provided wildcard certificate:
+#      tls /etc/caddy/certs/machines.pem /etc/caddy/certs/machines.key
+#
+# For local/internal installations, Caddy's internal CA works without
+# additional configuration.
+*.{$DEV_MACHINE_DOMAIN:machines.localhost} {
+	tls internal
+	encode zstd gzip
+	header {
+		-Server
+		Referrer-Policy "no-referrer"
+		X-Content-Type-Options "nosniff"
+	}
+	reverse_proxy machine-gateway:8090 {
+		flush_interval -1
+		transport http {
+			dial_timeout 10s
+			response_header_timeout 0
+		}
+	}
+}

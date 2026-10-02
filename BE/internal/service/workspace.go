@@ -1,0 +1,278 @@
+package service
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/google/uuid"
+	"github.com/metaforismo/sprintorio/BE/internal/domain"
+	"github.com/metaforismo/sprintorio/BE/internal/dto"
+	"github.com/metaforismo/sprintorio/BE/internal/repository"
+	"github.com/metaforismo/sprintorio/BE/pkg/audit"
+)
+
+var (
+	ErrWorkspaceSlugTaken                 = errors.New("workspace slug already taken")
+	ErrWorkspaceNotFound                  = errors.New("workspace not found")
+	ErrNotWorkspaceOwner                  = errors.New("only the workspace owner can perform this action")
+	ErrWorkspaceHasDevMachineRuntimes     = errors.New("workspace has non-destroyed dev machine runtimes")
+	ErrWorkspaceEnvironmentCleanupPending = errors.New("workspace environment cleanup is pending")
+)
+
+type WorkspaceService struct {
+	workspaceRepo repository.WorkspaceRepo
+	userRepo      repository.UserRepo
+}
+
+func NewWorkspaceService(workspaceRepo repository.WorkspaceRepo, userRepo repository.UserRepo) *WorkspaceService {
+	return &WorkspaceService{workspaceRepo: workspaceRepo, userRepo: userRepo}
+}
+
+type defaultWorkspaceLabel struct {
+	name        string
+	color       string
+	description string
+}
+
+func defaultWorkspaceLabelSpecs() []defaultWorkspaceLabel {
+	return []defaultWorkspaceLabel{
+		{name: "Bug", color: "#EF4444", description: "Something is broken or not working as expected."},
+		{name: "Feature", color: "#3B82F6", description: "A new feature or capability."},
+		{name: "Improvement", color: "#22C55E", description: "An enhancement to existing functionality."},
+		{name: "Documentation", color: "#A855F7", description: "Documentation or content updates."},
+		{name: "Question", color: "#F59E0B", description: "Needs clarification or discussion."},
+	}
+}
+
+func (s *WorkspaceService) Create(ctx context.Context, userID uuid.UUID, req dto.CreateWorkspaceRequest) (*domain.Workspace, error) {
+	existing, err := s.workspaceRepo.GetBySlug(ctx, req.Slug)
+	if err != nil {
+		return nil, err
+	}
+	if existing != nil {
+		return nil, ErrWorkspaceSlugTaken
+	}
+
+	ws := &domain.Workspace{
+		ID:               uuid.New(),
+		Name:             req.Name,
+		Slug:             req.Slug,
+		OwnerID:          userID,
+		ShareLinkMinRole: domain.RoleAdmin,
+	}
+
+	member := &domain.WorkspaceMember{
+		WorkspaceID: ws.ID,
+		UserID:      userID,
+		Role:        domain.RoleOwner,
+	}
+	labels := defaultWorkspaceLabels(ws.ID)
+
+	if err := s.workspaceRepo.CreateWithMemberAndLabels(ctx, ws, member, labels); err != nil {
+		if errors.Is(err, repository.ErrWorkspaceSlugTaken) {
+			return nil, ErrWorkspaceSlugTaken
+		}
+		return nil, err
+	}
+
+	audit.Log("workspace.created", userID, map[string]interface{}{
+		"workspace_id": ws.ID, "slug": ws.Slug,
+	})
+
+	return ws, nil
+}
+
+func defaultWorkspaceLabels(workspaceID uuid.UUID) []domain.Label {
+	specs := defaultWorkspaceLabelSpecs()
+	labels := make([]domain.Label, 0, len(specs))
+	for _, defaultLabel := range specs {
+		description := defaultLabel.description
+		labels = append(labels, domain.Label{
+			ID:          uuid.New(),
+			WorkspaceID: workspaceID,
+			Name:        defaultLabel.name,
+			Color:       defaultLabel.color,
+			Description: &description,
+		})
+	}
+	return labels
+}
+
+func (s *WorkspaceService) GetBySlug(ctx context.Context, slug string) (*domain.Workspace, error) {
+	return s.workspaceRepo.GetBySlug(ctx, slug)
+}
+
+func (s *WorkspaceService) ListByUser(ctx context.Context, userID uuid.UUID) ([]domain.Workspace, error) {
+	return s.workspaceRepo.ListByUser(ctx, userID)
+}
+
+func (s *WorkspaceService) Update(ctx context.Context, slug string, userID uuid.UUID, req dto.UpdateWorkspaceRequest) (*domain.Workspace, error) {
+	ws, err := s.workspaceRepo.GetBySlug(ctx, slug)
+	if err != nil || ws == nil {
+		return nil, ErrWorkspaceNotFound
+	}
+
+	if ws.OwnerID != userID {
+		return nil, ErrNotWorkspaceOwner
+	}
+
+	if req.Name != nil {
+		ws.Name = *req.Name
+	}
+	if req.LogoURL.Set {
+		if req.LogoURL.Value == nil || strings.TrimSpace(*req.LogoURL.Value) == "" {
+			ws.LogoURL = nil
+		} else {
+			trimmed := strings.TrimSpace(*req.LogoURL.Value)
+			ws.LogoURL = &trimmed
+		}
+	}
+	if req.ShareLinkMinRole != nil {
+		ws.ShareLinkMinRole = *req.ShareLinkMinRole
+	}
+
+	if err := s.workspaceRepo.Update(ctx, ws); err != nil {
+		return nil, err
+	}
+
+	audit.Log("workspace.updated", userID, map[string]interface{}{
+		"workspace_id": ws.ID, "slug": ws.Slug,
+	})
+
+	return ws, nil
+}
+
+func (s *WorkspaceService) Delete(ctx context.Context, slug string, userID uuid.UUID) error {
+	ws, err := s.workspaceRepo.GetBySlug(ctx, slug)
+	if err != nil || ws == nil {
+		return ErrWorkspaceNotFound
+	}
+
+	if ws.OwnerID != userID {
+		return ErrNotWorkspaceOwner
+	}
+
+	if err := s.workspaceRepo.Delete(ctx, ws.ID); err != nil {
+		if errors.Is(err, repository.ErrWorkspaceHasDevMachineRuntimes) {
+			return ErrWorkspaceHasDevMachineRuntimes
+		}
+		if errors.Is(err, repository.ErrWorkspaceEnvironmentCleanupPending) {
+			return ErrWorkspaceEnvironmentCleanupPending
+		}
+		return err
+	}
+
+	audit.Log("workspace.deleted", userID, map[string]interface{}{
+		"workspace_id": ws.ID, "slug": ws.Slug,
+	})
+
+	return nil
+}
+
+// GetOwner returns the user that owns the workspace, if any.
+func (s *WorkspaceService) GetOwner(ctx context.Context, ws *domain.Workspace) (*domain.User, error) {
+	if ws.OwnerID == uuid.Nil {
+		return nil, nil
+	}
+	return s.userRepo.GetByID(ctx, ws.OwnerID)
+}
+
+func (s *WorkspaceService) GetMember(ctx context.Context, workspaceID, userID uuid.UUID) (*domain.WorkspaceMember, error) {
+	return s.workspaceRepo.GetMember(ctx, workspaceID, userID)
+}
+
+func (s *WorkspaceService) InviteMember(ctx context.Context, workspaceID uuid.UUID, req dto.InviteMemberRequest) error {
+	user, err := s.userRepo.GetByEmail(ctx, req.Email)
+	if err != nil {
+		return err
+	}
+	if user == nil {
+		return fmt.Errorf("user not found")
+	}
+
+	existing, _ := s.workspaceRepo.GetMember(ctx, workspaceID, user.ID)
+	if existing != nil {
+		return fmt.Errorf("user is already a member")
+	}
+
+	member := &domain.WorkspaceMember{
+		WorkspaceID: workspaceID,
+		UserID:      user.ID,
+		Role:        req.Role,
+	}
+	if err := s.workspaceRepo.AddMember(ctx, member); err != nil {
+		return err
+	}
+
+	audit.Log("member.invited", user.ID, map[string]interface{}{
+		"workspace_id": workspaceID, "role": req.Role, "email": req.Email,
+	})
+	return nil
+}
+
+func (s *WorkspaceService) ListMembers(ctx context.Context, workspaceID uuid.UUID) ([]domain.WorkspaceMember, error) {
+	return s.workspaceRepo.ListMembers(ctx, workspaceID)
+}
+
+func (s *WorkspaceService) UpdateMemberRole(ctx context.Context, workspaceID, userID uuid.UUID, role string) error {
+	ws, err := s.workspaceRepo.GetByID(ctx, workspaceID)
+	if err != nil {
+		return err
+	}
+	if ws == nil {
+		return ErrWorkspaceNotFound
+	}
+
+	member, err := s.workspaceRepo.GetMember(ctx, workspaceID, userID)
+	if err != nil || member == nil {
+		return fmt.Errorf("member not found")
+	}
+
+	if userID == ws.OwnerID && role != domain.RoleOwner {
+		return fmt.Errorf("workspace owner cannot be demoted")
+	}
+	if userID != ws.OwnerID && role == domain.RoleOwner {
+		return fmt.Errorf("ownership transfer is not supported")
+	}
+
+	if err := s.workspaceRepo.UpdateMemberRole(ctx, workspaceID, userID, role); err != nil {
+		return err
+	}
+
+	audit.Log("member.role_changed", userID, map[string]interface{}{
+		"workspace_id": workspaceID, "new_role": role, "old_role": member.Role,
+	})
+	return nil
+}
+
+func (s *WorkspaceService) RemoveMember(ctx context.Context, workspaceID, userID uuid.UUID) error {
+	member, err := s.workspaceRepo.GetMember(ctx, workspaceID, userID)
+	if err != nil || member == nil {
+		return fmt.Errorf("member not found")
+	}
+
+	if member.Role == domain.RoleOwner {
+		count, err := s.workspaceRepo.CountMembersByRole(ctx, workspaceID, domain.RoleOwner)
+		if err != nil {
+			return err
+		}
+		if count <= 1 {
+			return fmt.Errorf("cannot remove the last owner")
+		}
+	}
+
+	if err := s.workspaceRepo.RemoveMember(ctx, workspaceID, userID); err != nil {
+		return err
+	}
+
+	audit.Log("member.removed", userID, map[string]interface{}{
+		"workspace_id": workspaceID,
+	})
+	return nil
+}
+
+func (s *WorkspaceService) ListMembersWithUsers(ctx context.Context, workspaceID uuid.UUID) ([]domain.WorkspaceMemberWithUser, error) {
+	return s.workspaceRepo.ListMembersWithUsers(ctx, workspaceID)
+}

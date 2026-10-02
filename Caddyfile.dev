@@ -1,0 +1,21 @@
+{
+	# Local development only. The browser must trust Caddy's local CA before
+	# https://*.machines.localhost launches are accepted without warnings.
+}
+
+*.{$DEV_MACHINE_DOMAIN:machines.localhost} {
+	tls internal
+	encode zstd gzip
+	header {
+		-Server
+		Referrer-Policy "no-referrer"
+		X-Content-Type-Options "nosniff"
+	}
+	reverse_proxy machine-gateway:8090 {
+		flush_interval -1
+		transport http {
+			dial_timeout 10s
+			response_header_timeout 0
+		}
+	}
+}
