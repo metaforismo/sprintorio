@@ -59,3 +59,23 @@ These records do not execute tests or authorize deployment. Automated tests run 
 ## CI
 
 GitHub Actions run identity checks, Go race/coverage tests with PostgreSQL, frontend checks and Playwright tests, and marketing-site build/SEO/responsive checks. A separate container integration job exercises Dev Machines on a Linux host with XFS project quotas. That runtime cannot be verified by ordinary frontend or Go unit tests.
+
+## IDE transport compatibility
+
+The IDE build executes `devmachine/ide/tests/ftp-compatibility.mjs` against its
+installed code-server dependency tree on Node 22. It checks actual get-uri FTP
+downloads using EPSV/PASV, metadata, cache, missing files and MLSD fallback. It
+also checks that an advertised separate data host is refused before a transfer.
+This restriction is the default in basic-ftp 6; it is not disabled by the patch.
+
+To repeat the smoke inside a built IDE image:
+
+```sh
+docker run --rm --entrypoint node sprintorio/dev-machine-ide:0.1.0 \
+  /usr/local/lib/sprintorio-ftp-compatibility.mjs /usr/lib/code-server
+```
+
+The script header documents an optional implicit FTPS fixture with a short-lived
+certificate. Trust is passed to that client only; there is no global trust change
+or certificate-validation bypass. Explicit FTPS and cloud host deployment are
+separate checks and are not covered by this smoke.

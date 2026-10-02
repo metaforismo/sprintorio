@@ -14,6 +14,7 @@ ARG NPM_VERSION=12.0.1
 ARG BRACE_EXPANSION_VERSION=5.0.12
 ARG IP_ADDRESS_VERSION=10.3.1
 ARG NPM_TAR_VERSION=7.5.22
+ARG BASIC_FTP_VERSION=6.2.1
 ARG NPM_UNDICI_VERSION=6.28.1
 ARG VSCODE_UNDICI_VERSION=7.29.1
 ARG CLAUDE_CODE_VERSION=2.1.218
@@ -28,6 +29,7 @@ COPY ide/checkout.sh /usr/local/bin/sprintorio-checkout
 COPY ide/terminal-session.sh /usr/local/bin/sprintorio-terminal-session
 COPY ide/command-event.js /usr/local/lib/sprintorio-command-event.js
 COPY ide/tmux.conf /etc/tmux.conf
+COPY ide/tests/ftp-compatibility.mjs /usr/local/lib/sprintorio-ftp-compatibility.mjs
 # VS Code's npm support extension is not the npm CLI package; keep its manifest identity unambiguous.
 RUN rm -f /usr/bin/pebble \
     && apt-get update \
@@ -60,19 +62,22 @@ RUN rm -f /usr/bin/pebble \
     && node -e 'const path="/usr/local/lib/node_modules/npm/node_modules/tar",actual=require(path+"/package.json").version;if(actual!==process.argv[1])throw new Error(`unexpected tar ${actual}`);require(path)' "${NPM_TAR_VERSION}" \
     && npm install --prefix /tmp/code-server-patches --ignore-scripts --package-lock=false \
          "js-yaml@4.3.2" "shell-quote@1.9.0" "tar@7.5.22" \
-         "ip-address@${IP_ADDRESS_VERSION}" "undici@${VSCODE_UNDICI_VERSION}" \
+         "ip-address@${IP_ADDRESS_VERSION}" "undici@${VSCODE_UNDICI_VERSION}" "basic-ftp@${BASIC_FTP_VERSION}" \
     && rm -rf /usr/lib/code-server/node_modules/js-yaml \
          /usr/lib/code-server/lib/vscode/node_modules/shell-quote \
          /usr/lib/code-server/lib/vscode/node_modules/tar \
          /usr/lib/code-server/node_modules/ip-address \
+         /usr/lib/code-server/node_modules/basic-ftp \
          /usr/lib/code-server/lib/vscode/node_modules/ip-address \
          /usr/lib/code-server/lib/vscode/node_modules/undici \
     && cp -a /tmp/code-server-patches/node_modules/js-yaml /usr/lib/code-server/node_modules/ \
     && cp -a /tmp/code-server-patches/node_modules/shell-quote /usr/lib/code-server/lib/vscode/node_modules/ \
     && cp -a /tmp/code-server-patches/node_modules/tar /usr/lib/code-server/lib/vscode/node_modules/ \
-    && cp -a /tmp/code-server-patches/node_modules/ip-address /usr/lib/code-server/node_modules/ \
+    && cp -a /tmp/code-server-patches/node_modules/ip-address /tmp/code-server-patches/node_modules/basic-ftp /usr/lib/code-server/node_modules/ \
     && cp -a /tmp/code-server-patches/node_modules/ip-address /tmp/code-server-patches/node_modules/undici /usr/lib/code-server/lib/vscode/node_modules/ \
     && node -e 'for(const [path,expected] of [["/usr/local/lib/node_modules/npm/node_modules/ip-address",process.argv[1]],["/usr/lib/code-server/node_modules/ip-address",process.argv[1]],["/usr/lib/code-server/lib/vscode/node_modules/ip-address",process.argv[1]],["/usr/local/lib/node_modules/npm/node_modules/undici",process.argv[2]],["/usr/lib/code-server/lib/vscode/node_modules/undici",process.argv[3]]]){const actual=require(path+"/package.json").version;if(actual!==expected)throw new Error(`unexpected ${path} ${actual}`);require(path)}' "${IP_ADDRESS_VERSION}" "${NPM_UNDICI_VERSION}" "${VSCODE_UNDICI_VERSION}" \
+    && node -e 'const path="/usr/lib/code-server/node_modules/basic-ftp",actual=require(path+"/package.json").version;if(actual!==process.argv[1])throw new Error(`unexpected basic-ftp ${actual}`);require(path)' "${BASIC_FTP_VERSION}" \
+    && node /usr/local/lib/sprintorio-ftp-compatibility.mjs /usr/lib/code-server \
     && node -e 'const fs=require("fs"),path="/usr/lib/code-server/lib/vscode/extensions/npm/package.json",manifest=JSON.parse(fs.readFileSync(path));manifest.name="npm-support";fs.writeFileSync(path,JSON.stringify(manifest,null,2)+"\n")' \
     && rm -rf /root/.npm /tmp/npm-patches /tmp/code-server-patches /var/lib/apt/lists/* \
     && rm -f /tmp/code-server.deb /usr/bin/pebble \

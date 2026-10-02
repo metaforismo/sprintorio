@@ -13,6 +13,8 @@
 - Optional Dev Machines navigation follows the server capability; member management accurately describes existing-account access.
 - Keyboard-accessible date clearing, labelled cycle-edit fields and preserved scope after metadata edits.
 - Compatible frontend dependency patches, Go 1.25.13, OpenSSL and Echo/network security updates.
+- Tested basic-ftp 6 upgrade in the optional IDE; passive data hosts are restricted and the build verifies actual get-uri transfers.
+- Current desktop/mobile product screenshots in the README and website.
 - CI cancels superseded runs and uses a Go-compatible vulnerability scanner.
 - Standalone Sprintorio identity, new repository links, logos, and documentation.
 - Project delivery plans: product briefs, milestones, and manual test cases.

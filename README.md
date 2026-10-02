@@ -8,7 +8,7 @@ Sprintorio is a self-hosted workspace for projects, product planning, issues, an
 
 [Report an issue](https://github.com/metaforismo/sprintorio/issues) · [Source](https://github.com/metaforismo/sprintorio) · [Testing guide](TESTING.md) · [Changes](CHANGELOG.md)
 
-![Sprintorio project delivery](assets/product-screenshot.png)
+![Sprintorio project delivery](assets/product-screenshot.jpg)
 
 *Example project with sample data.*
 

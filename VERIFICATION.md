@@ -17,18 +17,22 @@ this checkout and the named CI runs; they do not certify a hosted deployment.
 | npm dependency audits | PASS | UI and WEB each report zero vulnerabilities after compatible dependency updates |
 | Go vulnerability scan | PASS | Current vulnerability database, scanner v1.7.0, Go 1.25.13: zero called or imported-package findings; three findings in required modules only |
 | Manual Browser verification | PASS | Real local API/PostgreSQL: first team → issue, project creation, delivery brief/milestone/test evidence, reload persistence, cycle creation, issue assignment and activation, keyboard date clearing, failed edit → preserved draft → retry and reload; mobile website/app menus with Escape focus return and 390px project forms without horizontal overflow |
-| Docker runtime | PASS on previous PR revision | [Linux CI run 37071976260](https://github.com/metaforismo/sprintorio/actions/runs/37071976260) validated the previous revision; final revision remains subject to its own CI. Docker is unavailable locally |
+| Docker runtime | PASS on previous PR revision | [Linux CI run 37074314490](https://github.com/metaforismo/sprintorio/actions/runs/37074314490) validated the previous revision; final revision remains subject to its own CI. Docker is unavailable locally |
 
 Automated UI scenarios use mocked API responses and synthetic data. Database,
 HTTP and manual Browser checks separately exercise actual persistence. Manual
 project test records do not execute automated tests or authorize deployment.
 
-Optional Dev Machines remain disabled by default. Compatible fixes cover Go, OpenSSL,
-brace-expansion, js-yaml, tar, ip-address and undici. The IDE still includes
-basic-ftp 5.3.1 through get-uri: CVE-2026-102990 requires the incompatible 6.2.1
-upgrade and has no compatible parent update at verification time. Final image
-builds/scans are tracked in PR #1. Do not infer container security from clean
-application dependency audits or enable this subsystem as a verified deployment.
+Optional Dev Machines remain disabled by default. Go, OpenSSL, brace-expansion,
+js-yaml, tar, ip-address, undici and basic-ftp are patched. The IDE build runs a
+compatibility smoke through its actual get-uri 6.0.5 / basic-ftp 6.2.1 dependency
+tree. Local Node 22.23.1 checks pass for EPSV/PASV downloads, metadata, cache,
+missing files, MDTM fallback to MLSD, and refusal of a separate passive data host.
+Implicit FTPS also passes with a fixture CA trusted only by the client; explicit
+FTPS was not exercised. Version 6 restricts passive transfers to the control
+host; no option re-enables arbitrary data hosts. Final image builds and all
+security scans remain visible in [PR #1](https://github.com/metaforismo/sprintorio/pull/1/checks).
+Clean application audits are distinct from container and host deployment checks.
 
 The three Go module-only findings concern SSH/OpenPGP packages that the application
 does not import or call. This is scanner reachability evidence, not a general

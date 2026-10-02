@@ -90,11 +90,11 @@ test('member persists product, milestones and manual test evidence; readiness st
 	if (process.env.UPDATE_SCREENSHOTS === '1') {
 		await mkdir('../assets', { recursive: true });
 		await mkdir('../WEB/static', { recursive: true });
-		await page.screenshot({ path: '../assets/product-screenshot.png', fullPage: true });
-		await copyFile('../assets/product-screenshot.png', '../WEB/static/product-screenshot.png');
-		await page.screenshot({ path: '../WEB/static/product-screenshot-1440.png', fullPage: true });
-		await page.setViewportSize({ width: 720, height: 1600 });
-		await page.screenshot({ path: '../WEB/static/product-screenshot-720.png', fullPage: true });
+		await page.setViewportSize({ width: 1440, height: 1000 });
+		await page.screenshot({ path: '../assets/product-screenshot.jpg', fullPage: true });
+		await copyFile('../assets/product-screenshot.jpg', '../WEB/static/product-screenshot.jpg');
+		await page.setViewportSize({ width: 390, height: 844 });
+		await page.screenshot({ path: '../WEB/static/product-mobile.jpg', fullPage: true });
 		await page.setViewportSize({ width: 1440, height: 1600 });
 	}
 	expect(state.writes[0]).toMatchObject({
@@ -152,7 +152,7 @@ test('delivery form works on a narrow mobile viewport without horizontal overflo
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 	if (process.env.UPDATE_SCREENSHOTS === '1') {
 		await mkdir('../assets', { recursive: true });
-		await page.screenshot({ path: '../assets/delivery-mobile.png', fullPage: true });
+		await page.screenshot({ path: '../assets/delivery-mobile.jpg', fullPage: true });
 	}
 });
 

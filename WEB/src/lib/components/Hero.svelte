@@ -138,18 +138,18 @@
           <picture>
             <source
               media="(max-width: 640px)"
-              srcset="/product-screenshot-720.png 720w"
+              srcset="/product-mobile.jpg 390w"
               sizes="100vw"
-              width="720"
-              height="1600"
+              width="390"
+              height="844"
             />
             <img
-              src="/product-screenshot.png"
-              srcset="/product-screenshot-1440.png 1440w"
+              src="/product-screenshot.jpg"
+              srcset="/product-screenshot.jpg 1440w"
               sizes="(max-width: 640px) 100vw, (max-width: 1200px) 92vw, 1152px"
               alt="Sprintorio project delivery with product brief, milestones and manual test evidence"
               width="1440"
-              height="1600"
+              height="1000"
               class="w-full h-auto max-h-[520px] object-cover object-top"
               loading="eager"
               fetchpriority="high"
