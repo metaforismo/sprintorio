@@ -67,6 +67,12 @@
 >
 	<Dialog.Content
 		showCloseButton={!submitting}
+		onEscapeKeydown={(event) => {
+			if (submitting) event.preventDefault();
+		}}
+		onInteractOutside={(event) => {
+			if (submitting) event.preventDefault();
+		}}
 		class="sm:max-w-[420px] border-[var(--app-border)] bg-[var(--color-bg-secondary)] p-0 overflow-hidden rounded-xl"
 	>
 		<form onsubmit={handleSubmit} aria-busy={submitting}>

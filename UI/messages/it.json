@@ -229,6 +229,7 @@
 	"cycles.create.description_placeholder": "Qual è l'obiettivo di questo ciclo?",
 	"cycles.create.goals_placeholder": "es. rilasciare il flusso di autenticazione, correggere 20 bug",
 	"cycles.create.name_placeholder": "es. Ciclo 1",
+	"cycles.create.default_name": "Ciclo {number}",
 	"cycles.create.title": "Crea ciclo",
 	"cycles.delete_cycle": "Elimina ciclo",
 	"cycles.edit.description": "Aggiorna i dettagli del ciclo.",

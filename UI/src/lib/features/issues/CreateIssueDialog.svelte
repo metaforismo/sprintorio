@@ -326,6 +326,12 @@
 >
 	<Dialog.Content
 		showCloseButton={!submitting}
+		onEscapeKeydown={(event) => {
+			if (submitting) event.preventDefault();
+		}}
+		onInteractOutside={(event) => {
+			if (submitting) event.preventDefault();
+		}}
 		class="sm:max-w-[640px] gap-0 overflow-hidden rounded-xl border-[var(--app-border)] bg-[var(--color-bg-secondary)] p-0 max-sm:w-screen max-sm:h-dvh max-sm:max-w-none max-sm:rounded-none max-sm:top-0 max-sm:left-0 max-sm:translate-x-0 max-sm:flex max-sm:flex-col"
 		onOpenAutoFocus={(e) => {
 			e.preventDefault();

@@ -207,8 +207,8 @@
 		description?: string;
 		goals?: string;
 		retrospective?: string;
-		start_date?: string;
-		end_date?: string;
+		start_date?: string | null;
+		end_date?: string | null;
 	}) {
 		if (!editingCycle) return;
 		try {
@@ -224,6 +224,7 @@
 			appToast.success(m['cycles.toast.updated']());
 		} catch (err: any) {
 			appToast.apiError(err, m['cycles.toast.failed_update']());
+			throw err;
 		}
 	}
 

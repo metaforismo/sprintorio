@@ -11,7 +11,10 @@ ARG TTYD_VERSION=1.7.7
 ARG TTYD_AMD64_SHA256=8a217c968aba172e0dbf3f34447218dc015bc4d5e59bf51db2f2cd12b7be4f55
 ARG TTYD_ARM64_SHA256=b38acadd89d1d396a0f5649aa52c539edbad07f4bc7348b27b4f4b7219dd4165
 ARG NPM_VERSION=12.0.1
-ARG BRACE_EXPANSION_VERSION=5.0.8
+ARG BRACE_EXPANSION_VERSION=5.0.12
+ARG IP_ADDRESS_VERSION=10.3.1
+ARG NPM_UNDICI_VERSION=6.28.1
+ARG VSCODE_UNDICI_VERSION=7.29.1
 ARG CLAUDE_CODE_VERSION=2.1.218
 ARG OPENCODE_VERSION=1.18.4
 ARG CODEX_VERSION=0.145.0
@@ -44,17 +47,29 @@ RUN rm -f /usr/bin/pebble \
     && npm install -g --allow-scripts=opencode-ai "opencode-ai@${OPENCODE_VERSION}" \
     && npm install -g "@openai/codex@${CODEX_VERSION}" \
     && npm install --prefix /tmp/npm-patches --ignore-scripts --package-lock=false "brace-expansion@${BRACE_EXPANSION_VERSION}" \
+         "ip-address@${IP_ADDRESS_VERSION}" "undici@${NPM_UNDICI_VERSION}" \
     && rm -rf /usr/local/lib/node_modules/npm/node_modules/brace-expansion \
-    && cp -a /tmp/npm-patches/node_modules/brace-expansion /usr/local/lib/node_modules/npm/node_modules/ \
+         /usr/local/lib/node_modules/npm/node_modules/ip-address \
+         /usr/local/lib/node_modules/npm/node_modules/undici \
+    && cp -a /tmp/npm-patches/node_modules/brace-expansion \
+         /tmp/npm-patches/node_modules/ip-address /tmp/npm-patches/node_modules/undici \
+         /usr/local/lib/node_modules/npm/node_modules/ \
     && node -e 'const actual=require("/usr/local/lib/node_modules/npm/node_modules/brace-expansion/package.json").version;if(actual!==process.argv[1])throw new Error(`unexpected brace-expansion ${actual}`)' "${BRACE_EXPANSION_VERSION}" \
     && npm install --prefix /tmp/code-server-patches --ignore-scripts --package-lock=false \
-         "js-yaml@4.3.0" "shell-quote@1.9.0" "tar@7.5.19" \
+         "js-yaml@4.3.2" "shell-quote@1.9.0" "tar@7.5.22" \
+         "ip-address@${IP_ADDRESS_VERSION}" "undici@${VSCODE_UNDICI_VERSION}" \
     && rm -rf /usr/lib/code-server/node_modules/js-yaml \
          /usr/lib/code-server/lib/vscode/node_modules/shell-quote \
          /usr/lib/code-server/lib/vscode/node_modules/tar \
+         /usr/lib/code-server/node_modules/ip-address \
+         /usr/lib/code-server/lib/vscode/node_modules/ip-address \
+         /usr/lib/code-server/lib/vscode/node_modules/undici \
     && cp -a /tmp/code-server-patches/node_modules/js-yaml /usr/lib/code-server/node_modules/ \
     && cp -a /tmp/code-server-patches/node_modules/shell-quote /usr/lib/code-server/lib/vscode/node_modules/ \
     && cp -a /tmp/code-server-patches/node_modules/tar /usr/lib/code-server/lib/vscode/node_modules/ \
+    && cp -a /tmp/code-server-patches/node_modules/ip-address /usr/lib/code-server/node_modules/ \
+    && cp -a /tmp/code-server-patches/node_modules/ip-address /tmp/code-server-patches/node_modules/undici /usr/lib/code-server/lib/vscode/node_modules/ \
+    && node -e 'for(const [path,expected] of [["/usr/local/lib/node_modules/npm/node_modules/ip-address",process.argv[1]],["/usr/lib/code-server/node_modules/ip-address",process.argv[1]],["/usr/lib/code-server/lib/vscode/node_modules/ip-address",process.argv[1]],["/usr/local/lib/node_modules/npm/node_modules/undici",process.argv[2]],["/usr/lib/code-server/lib/vscode/node_modules/undici",process.argv[3]]]){const actual=require(path+"/package.json").version;if(actual!==expected)throw new Error(`unexpected ${path} ${actual}`);require(path)}' "${IP_ADDRESS_VERSION}" "${NPM_UNDICI_VERSION}" "${VSCODE_UNDICI_VERSION}" \
     && node -e 'const fs=require("fs"),path="/usr/lib/code-server/lib/vscode/extensions/npm/package.json",manifest=JSON.parse(fs.readFileSync(path));manifest.name="npm-support";fs.writeFileSync(path,JSON.stringify(manifest,null,2)+"\n")' \
     && rm -rf /root/.npm /tmp/npm-patches /tmp/code-server-patches /var/lib/apt/lists/* \
     && rm -f /tmp/code-server.deb /usr/bin/pebble \

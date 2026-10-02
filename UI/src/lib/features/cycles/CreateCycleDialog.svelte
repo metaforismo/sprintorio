@@ -38,7 +38,7 @@
 
 	$effect(() => {
 		if (open) {
-			name = m['cycles.title']() + ' ' + nextNumber;
+			name = m['cycles.create.default_name']({ number: nextNumber });
 			description = '';
 			goals = '';
 			startDate = '';
@@ -85,6 +85,12 @@
 >
 	<Dialog.Content
 		showCloseButton={!submitting}
+		onEscapeKeydown={(event) => {
+			if (submitting) event.preventDefault();
+		}}
+		onInteractOutside={(event) => {
+			if (submitting) event.preventDefault();
+		}}
 		class="sm:max-w-[420px] border-[var(--app-border)] bg-[var(--color-bg-secondary)] p-0 overflow-hidden rounded-xl"
 	>
 		<form onsubmit={handleSubmit} aria-busy={submitting}>

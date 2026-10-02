@@ -177,7 +177,7 @@
 	async function handleDateRangeChange(start: string, end: string) {
 		if (!cycle || !canManageCycles) return;
 		try {
-			cycle = await updateCycle(slug, teamId, cycle.id, { start_date: start, end_date: end });
+			cycle = await updateCycle(slug, teamId, cycle.id, { start_date: start || null, end_date: end || null });
 			appToast.success(m['cycles.toast.dates_updated']());
 		} catch (err: any) {
 			appToast.apiError(err, m['cycles.toast.failed_update_dates']());

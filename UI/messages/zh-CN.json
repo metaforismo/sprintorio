@@ -229,6 +229,7 @@
 	"cycles.create.description_placeholder": "这个周期的目标是什么？",
 	"cycles.create.goals_placeholder": "例如：完成认证流程，修复 20 个 bug",
 	"cycles.create.name_placeholder": "例如：第 1 周期",
+	"cycles.create.default_name": "周期 {number}",
 	"cycles.create.title": "创建周期",
 	"cycles.delete_cycle": "删除周期",
 	"cycles.edit.description": "更新周期详情。",

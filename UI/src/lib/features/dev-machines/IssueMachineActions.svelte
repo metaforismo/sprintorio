@@ -20,14 +20,21 @@
 		pickerOpen = $bindable(false),
 		pickerIntent = $bindable<IssueMachineIntent>('ide')
 	}: {
-		slug: string; issue: Issue; onaction?: () => void;
-		repositoryOpen?: boolean; pickerOpen?: boolean; pickerIntent?: IssueMachineIntent;
+		slug: string;
+		issue: Issue;
+		onaction?: () => void;
+		repositoryOpen?: boolean;
+		pickerOpen?: boolean;
+		pickerIntent?: IssueMachineIntent;
 	} = $props();
 
 	let machines = $state<DevMachine[]>([]);
-	const canUseDevMachines = $derived(!demoMode || authState.user?.is_sysadmin === true);
+	const canUseDevMachines = $derived(
+		authState.user?.dev_machines_enabled !== false && (!demoMode || authState.user?.is_sysadmin === true)
+	);
 
 	async function refresh() {
+		if (!canUseDevMachines) return false;
 		try {
 			machines = (await listDevMachines(slug, issue.id)).data ?? [];
 			return true;
@@ -38,6 +45,7 @@
 	}
 
 	function chooseMachine(intent: IssueMachineIntent) {
+		if (!canUseDevMachines) return;
 		pickerIntent = intent;
 		pickerOpen = true;
 		onaction?.();
@@ -53,10 +61,27 @@
 </script>
 
 {#if canUseDevMachines}<div class="min-w-0 space-y-0.5">
-	<Button variant="ghost" onclick={() => chooseMachine('ide')} class="w-full min-w-0 justify-start"><Code2 size={14} />{m['machines.open_code_editor_action']()}</Button>
-	<Button variant="ghost" onclick={() => chooseMachine('terminal')} class="w-full min-w-0 justify-start"><SquareTerminal size={14} />{m['machines.open_terminal_action']()}</Button>
-	<Button variant="ghost" onclick={() => chooseMachine('agent')} class="w-full min-w-0 justify-start"><Bot size={14} />{m['machines.run_agent_action']()}</Button>
-	<Button variant="ghost" onclick={() => viewMachine('#agent-runs')} class="w-full min-w-0 justify-start"><Box size={14} />{m['machines.view_agent_runs']()}</Button>
-	<Button variant="ghost" onclick={() => viewMachine('#activity')} class="w-full min-w-0 justify-start"><Activity size={14} />{m['machines.view_machine_activity']()}</Button>
-	<Button variant="ghost" onclick={() => { repositoryOpen = true; onaction?.(); }} class="w-full min-w-0 justify-start"><GitBranch size={14} />{m['machines.set_development_defaults']()}</Button>
-</div>{/if}
+		<Button variant="ghost" onclick={() => chooseMachine('ide')} class="w-full min-w-0 justify-start"
+			><Code2 size={14} />{m['machines.open_code_editor_action']()}</Button
+		>
+		<Button variant="ghost" onclick={() => chooseMachine('terminal')} class="w-full min-w-0 justify-start"
+			><SquareTerminal size={14} />{m['machines.open_terminal_action']()}</Button
+		>
+		<Button variant="ghost" onclick={() => chooseMachine('agent')} class="w-full min-w-0 justify-start"
+			><Bot size={14} />{m['machines.run_agent_action']()}</Button
+		>
+		<Button variant="ghost" onclick={() => viewMachine('#agent-runs')} class="w-full min-w-0 justify-start"
+			><Box size={14} />{m['machines.view_agent_runs']()}</Button
+		>
+		<Button variant="ghost" onclick={() => viewMachine('#activity')} class="w-full min-w-0 justify-start"
+			><Activity size={14} />{m['machines.view_machine_activity']()}</Button
+		>
+		<Button
+			variant="ghost"
+			onclick={() => {
+				repositoryOpen = true;
+				onaction?.();
+			}}
+			class="w-full min-w-0 justify-start"><GitBranch size={14} />{m['machines.set_development_defaults']()}</Button
+		>
+	</div>{/if}

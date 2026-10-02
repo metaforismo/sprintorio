@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { authState } from '$lib/features/auth/auth.state.svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { getProject, updateProject, deleteProject } from '$lib/api/projects';
@@ -87,6 +88,7 @@
 	let canManageDevelopment = $state(false);
 	let developmentRequestVersion = 0;
 	let developmentSaveVersion = 0;
+	const developmentEnabled = $derived(authState.user?.dev_machines_enabled !== false);
 	const projectTeam = $derived(project?.team_id ? teams.find((t) => t.id === project!.team_id) : null);
 
 	const STATUS_OPTIONS: { value: ProjectStatus; label: string; icon: typeof Circle }[] = [
@@ -97,7 +99,7 @@
 	];
 
 	function isCurrentDevelopmentScope(s: string, pid: string, version: number) {
-		return slug === s && projectId === pid && developmentRequestVersion === version;
+		return developmentEnabled && slug === s && projectId === pid && developmentRequestVersion === version;
 	}
 
 	async function loadDevelopmentSettings(s: string, pid: string, version: number) {
@@ -171,6 +173,10 @@
 		developmentReady = false;
 		savingDevelopment = false;
 		canManageDevelopment = false;
+		if (!developmentEnabled) {
+			developmentOpen = false;
+			return;
+		}
 		if (!s || !pid || !developmentOpen) return;
 		void loadDevelopmentSettings(s, pid, version);
 		return () => {
@@ -257,7 +263,8 @@
 	}
 
 	async function saveDevelopmentSettings() {
-		if (!canManageDevelopment || developmentLoading || !developmentReady || savingDevelopment) return;
+		if (!developmentEnabled || !canManageDevelopment || developmentLoading || !developmentReady || savingDevelopment)
+			return;
 		const s = slug;
 		const pid = projectId;
 		const requestVersion = developmentRequestVersion;
@@ -367,19 +374,15 @@
 				</Popover.Root>
 			</div>
 			<div class="flex max-w-full flex-wrap items-center gap-2">
-				<Button
-					variant="ghost"
-					size="icon-sm"
-					aria-label={m['projects.development.settings']()}
-					onclick={() => (developmentOpen = true)}
-					title={developmentLoading
-						? m['projects.development.loading']()
-						: developmentReady
-							? canManageDevelopment
-								? m['projects.development.settings']()
-								: m['projects.development.view_settings']()
-							: m['projects.development.unavailable']()}><Settings2 size={15} /></Button
-				>
+				{#if developmentEnabled}
+					<Button
+						variant="ghost"
+						size="icon-sm"
+						aria-label={m['projects.development.settings']()}
+						onclick={() => (developmentOpen = true)}
+						title={m['projects.development.settings']()}><Settings2 size={15} /></Button
+					>
+				{/if}
 				<Button
 					disabled={!canManageProject}
 					variant="outline"
@@ -574,70 +577,73 @@
 	>
 </Dialog.Root>
 
-<Dialog.Root bind:open={developmentOpen}>
-	<Dialog.Content class="sm:max-w-md">
-		<Dialog.Header
-			><Dialog.Title>{m['projects.development.title']()}</Dialog.Title><Dialog.Description
-				>{m['projects.development.description']()}</Dialog.Description
-			></Dialog.Header
-		>
-		{#if !canManageDevelopment}<p
-				class="rounded-md border border-[var(--app-border)] p-3 text-xs text-[var(--color-text-tertiary)]"
+{#if developmentEnabled}
+	<Dialog.Root bind:open={developmentOpen}>
+		<Dialog.Content class="sm:max-w-md">
+			<Dialog.Header
+				><Dialog.Title>{m['projects.development.title']()}</Dialog.Title><Dialog.Description
+					>{m['projects.development.description']()}</Dialog.Description
+				></Dialog.Header
 			>
-				{m['projects.development.permission_note']()}
-			</p>{/if}
-		<div class="space-y-4">
-			<div class="space-y-1">
-				<Label>{m['projects.development.repository']()}</Label><Select.Root
-					type="single"
-					value={developmentRepositoryId}
-					disabled={developmentLoading || !developmentReady || !canManageDevelopment}
-					onValueChange={(value) => value && (developmentRepositoryId = value)}
-					><Select.Trigger class="w-full"
-						>{developmentLoading
-							? m['common.loading']()
-							: (developmentRepositories.find((item) => item.id === developmentRepositoryId)?.full_name ??
-								m['projects.development.team_or_workspace_default']())}</Select.Trigger
-					><Select.Content
-						><Select.Item value="inherit" label={m['projects.development.inherited_default']()}
-							>{m['projects.development.inherited_default']()}</Select.Item
-						>{#each developmentRepositories as repository}<Select.Item
-								value={repository.id}
-								label={repository.full_name}>{repository.full_name}</Select.Item
-							>{/each}</Select.Content
-					></Select.Root
+			{#if !developmentLoading && !canManageDevelopment}<p
+					class="rounded-md border border-[var(--app-border)] p-3 text-xs text-[var(--color-text-tertiary)]"
 				>
+					{m['projects.development.permission_note']()}
+				</p>{/if}
+			<div class="space-y-4">
+				<div class="space-y-1">
+					<Label>{m['projects.development.repository']()}</Label><Select.Root
+						type="single"
+						value={developmentRepositoryId}
+						disabled={developmentLoading || !developmentReady || !canManageDevelopment}
+						onValueChange={(value) => value && (developmentRepositoryId = value)}
+						><Select.Trigger class="w-full"
+							>{developmentLoading
+								? m['common.loading']()
+								: (developmentRepositories.find((item) => item.id === developmentRepositoryId)?.full_name ??
+									m['projects.development.team_or_workspace_default']())}</Select.Trigger
+						><Select.Content
+							><Select.Item value="inherit" label={m['projects.development.inherited_default']()}
+								>{m['projects.development.inherited_default']()}</Select.Item
+							>{#each developmentRepositories as repository}<Select.Item
+									value={repository.id}
+									label={repository.full_name}>{repository.full_name}</Select.Item
+								>{/each}</Select.Content
+						></Select.Root
+					>
+				</div>
+				<div class="space-y-1">
+					<Label>{m['projects.development.environment']()}</Label><Select.Root
+						type="single"
+						value={developmentEnvironmentId}
+						disabled={developmentLoading || !developmentReady || !canManageDevelopment}
+						onValueChange={(value) => value && (developmentEnvironmentId = value)}
+						><Select.Trigger class="w-full"
+							>{developmentLoading
+								? m['common.loading']()
+								: (developmentEnvironments.find((item) => item.id === developmentEnvironmentId)?.name ??
+									m['projects.development.team_or_workspace_default']())}</Select.Trigger
+						><Select.Content
+							><Select.Item value="inherit" label={m['projects.development.inherited_default']()}
+								>{m['projects.development.inherited_default']()}</Select.Item
+							>{#each developmentEnvironments as environment}<Select.Item
+									value={environment.id}
+									label={environment.name}>{environment.name}</Select.Item
+								>{/each}</Select.Content
+						></Select.Root
+					>
+				</div>
 			</div>
-			<div class="space-y-1">
-				<Label>{m['projects.development.environment']()}</Label><Select.Root
-					type="single"
-					value={developmentEnvironmentId}
-					disabled={developmentLoading || !developmentReady || !canManageDevelopment}
-					onValueChange={(value) => value && (developmentEnvironmentId = value)}
-					><Select.Trigger class="w-full"
-						>{developmentLoading
-							? m['common.loading']()
-							: (developmentEnvironments.find((item) => item.id === developmentEnvironmentId)?.name ??
-								m['projects.development.team_or_workspace_default']())}</Select.Trigger
-					><Select.Content
-						><Select.Item value="inherit" label={m['projects.development.inherited_default']()}
-							>{m['projects.development.inherited_default']()}</Select.Item
-						>{#each developmentEnvironments as environment}<Select.Item value={environment.id} label={environment.name}
-								>{environment.name}</Select.Item
-							>{/each}</Select.Content
-					></Select.Root
-				>
-			</div>
-		</div>
-		<Dialog.Footer
-			><Button variant="outline" onclick={() => (developmentOpen = false)}>{m['common.cancel']()}</Button><Button
-				onclick={saveDevelopmentSettings}
-				disabled={developmentLoading || !developmentReady || savingDevelopment || !canManageDevelopment}
-				>{savingDevelopment ? m['common.saving']() : m['common.save']()}</Button
-			></Dialog.Footer
-		>
-	</Dialog.Content>
-</Dialog.Root>
+			<Dialog.Footer
+				><Button variant="outline" onclick={() => (developmentOpen = false)}>{m['common.cancel']()}</Button><Button
+					onclick={saveDevelopmentSettings}
+					disabled={developmentLoading || !developmentReady || savingDevelopment || !canManageDevelopment}
+					>{savingDevelopment ? m['common.saving']() : m['common.save']()}</Button
+				></Dialog.Footer
+			>
+		</Dialog.Content>
+	</Dialog.Root>
+{/if}
 
 {#if issuesState.selectedIssue}
 	<IssueDetail issue={issuesState.selectedIssue} {slug} onclose={() => issuesState.select(null)} />

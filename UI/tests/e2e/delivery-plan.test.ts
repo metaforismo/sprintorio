@@ -170,10 +170,14 @@ test('manual test templates stay unrun and saved test lists can be searched and 
 	await page.getByLabel('Search tests', { exact: true }).fill('keyboard');
 	await expect(page.locator('summary').filter({ hasText: 'Accessibility check' })).toHaveCount(1);
 	await expect(page.locator('summary').filter({ hasText: 'Acceptance check' })).toHaveCount(0);
+	const accessibilitySummary = page.locator('summary').filter({ hasText: 'Accessibility check' });
+	if ((await accessibilitySummary.locator('..').getAttribute('open')) === null) await accessibilitySummary.click();
+	await expect(page.getByLabel('Test case 3', { exact: true })).toHaveValue('Accessibility check');
+
 	await page.getByLabel('Filter by result', { exact: true }).selectOption('passed');
 	await expect(page.getByText('No matching tests.', { exact: true })).toBeVisible();
 	await page.getByLabel('Filter by result', { exact: true }).selectOption('all');
-	await page.locator('summary').filter({ hasText: 'Accessibility check' }).click();
+	if ((await accessibilitySummary.locator('..').getAttribute('open')) === null) await accessibilitySummary.click();
 	await page.getByRole('button', { name: 'Remove test case 3', exact: true }).click();
 	await expect(page.getByLabel('Search tests', { exact: true })).toHaveValue('keyboard');
 	await page.getByLabel('Search tests', { exact: true }).fill('');

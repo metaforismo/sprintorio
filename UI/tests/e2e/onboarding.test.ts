@@ -14,6 +14,11 @@ test('first issue continues after team creation and preserves both failed drafts
 	let teamAttempts = 0;
 	let issueAttempts = 0;
 	let createdTeam = false;
+	let firstTeamRequestStarted = false;
+	let releaseFirstTeamRequest!: () => void;
+	const firstTeamRequest = new Promise<void>((resolve) => {
+		releaseFirstTeamRequest = resolve;
+	});
 	await page.route('https://raw.githubusercontent.com/**', (route) => route.fulfill({ json: [] }));
 	await page.route('**://*/api/**', async (route) => {
 		const request = route.request();
@@ -25,8 +30,11 @@ test('first issue continues after team creation and preserves both failed drafts
 		if (path === '/api/notifications') return route.fulfill({ json: { notifications: [], unread_count: 0 } });
 		if (path === '/api/workspaces/test/teams' && request.method() === 'POST') {
 			teamAttempts++;
-			if (teamAttempts === 1)
+			if (teamAttempts === 1) {
+				firstTeamRequestStarted = true;
+				await firstTeamRequest;
 				return route.fulfill({ status: 409, json: { error: { message: 'Prefix already used' } } });
+			}
 			createdTeam = true;
 			return route.fulfill({ status: 201, json: team });
 		}
@@ -51,7 +59,18 @@ test('first issue continues after team creation and preserves both failed drafts
 	const teamDialog = page.getByRole('dialog');
 	await expect(teamDialog.getByRole('heading', { name: 'Create team' })).toBeVisible();
 	await teamDialog.getByLabel('Name', { exact: true }).fill('Engineering');
-	await teamDialog.getByRole('button', { name: 'Create team', exact: true }).click();
+	try {
+		await teamDialog.getByRole('button', { name: 'Create team', exact: true }).click();
+		await expect.poll(() => firstTeamRequestStarted).toBe(true);
+		await page.keyboard.press('Escape');
+		await expect(teamDialog).toBeVisible();
+		await expect(teamDialog.locator('form')).toHaveAttribute('aria-busy', 'true');
+		await expect(teamDialog.locator('button[type=submit]')).toBeDisabled();
+		await expect(teamDialog.locator('button[type=submit]')).toHaveText('Creating...');
+		await expect(teamDialog.getByLabel('Name', { exact: true })).toHaveValue('Engineering');
+	} finally {
+		releaseFirstTeamRequest();
+	}
 	await expect(page.locator('.app-toast-shell')).toContainText('Prefix already used');
 	await expect(teamDialog.getByLabel('Name', { exact: true })).toHaveValue('Engineering');
 	await teamDialog.getByRole('button', { name: 'Create team', exact: true }).click();

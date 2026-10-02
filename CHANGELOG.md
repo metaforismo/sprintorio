@@ -11,8 +11,9 @@
 - Lazy custom team icons, batched project progress, and on-demand timeline/development data.
 - Retryable timeline loading, partial-chart notices, stale-response guards, and bounded session recovery.
 - Optional Dev Machines navigation follows the server capability; member management accurately describes existing-account access.
-
-
+- Keyboard-accessible date clearing with persisted nullable cycle dates.
+- Compatible frontend dependency patches, Go 1.25.13 and Echo/network security updates.
+- CI cancels superseded runs and uses a Go-compatible vulnerability scanner.
 - Standalone Sprintorio identity, new repository links, logos, and documentation.
 - Project delivery plans: product briefs, milestones, and manual test cases.
 - Versioned saves prevent conflicting edits from silently overwriting one another.

@@ -7,7 +7,10 @@ const project = {
 	team_id: 't1',
 	progress: { total: 4, completed: 1, cancelled: 2 }
 };
-async function setup(page: Page, options: { failList?: boolean; failCreate?: boolean } = {}) {
+async function setup(
+	page: Page,
+	options: { failList?: boolean; failCreate?: boolean; devMachinesEnabled?: boolean } = {}
+) {
 	let listFailed = !!options.failList;
 	let createFailed = false;
 	const writes: string[] = [];
@@ -16,7 +19,14 @@ async function setup(page: Page, options: { failList?: boolean; failCreate?: boo
 		const path = new URL(route.request().url()).pathname;
 		const method = route.request().method();
 		if (path === '/api/auth/me')
-			return route.fulfill({ json: { id: 'u1', name: 'Member', email: 'member@example.com' } });
+			return route.fulfill({
+				json: {
+					id: 'u1',
+					name: 'Member',
+					email: 'member@example.com',
+					dev_machines_enabled: options.devMachinesEnabled
+				}
+			});
 		if (path === '/api/preferences')
 			return route.fulfill({ json: { theme_mode: 'dark', font_size: 'default', workflow_sort_order: [] } });
 		if (path === '/api/workspaces') return route.fulfill({ json: [{ id: 'w', slug: 'test', name: 'Workspace' }] });
@@ -69,7 +79,13 @@ async function setup(page: Page, options: { failList?: boolean; failCreate?: boo
 		if (path.endsWith('/dev-machine-scope-setting')) return route.fulfill({ json: {} });
 		return route.fulfill({ json: [] });
 	});
-	return { writes, cycles, allowList: () => { listFailed = false; } };
+	return {
+		writes,
+		cycles,
+		allowList: () => {
+			listFailed = false;
+		}
+	};
 }
 
 test('project creation retains a failed draft, retries once, and progress excludes cancelled work', async ({
@@ -108,4 +124,11 @@ test('project list error has retry; timeline loads only the project team and del
 	expect(state.writes).not.toContain('DELETE');
 	await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
 	expect(state.writes).not.toContain('DELETE');
+});
+
+test('disabled Dev Machines do not expose project development settings', async ({ page }) => {
+	await setup(page, { devMachinesEnabled: false });
+	await page.goto('/test/projects/p1');
+	await expect(page.getByRole('button', { name: 'Issue list', exact: true })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Development settings', exact: true })).toHaveCount(0);
 });

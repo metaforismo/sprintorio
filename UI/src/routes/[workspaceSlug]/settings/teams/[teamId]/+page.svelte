@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { authState } from '$lib/features/auth/auth.state.svelte';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import type { Team } from '$lib/types/team';
@@ -50,6 +51,7 @@
 	let emojiLoading = $state(false);
 	let emojiDatabase: Database | null = null;
 	let emojiRequestId = 0;
+	const developmentEnabled = $derived(authState.user?.dev_machines_enabled !== false);
 	let developmentRepositories = $state<GitHubRepo[]>([]);
 	let developmentEnvironments = $state<DevMachineEnvironment[]>([]);
 	let developmentRepositoryId = $state('inherit');
@@ -190,7 +192,7 @@
 	});
 
 	function isCurrentDevelopmentScope(s: string, t: string, version: number) {
-		return slug === s && teamId === t && developmentRequestVersion === version;
+		return developmentEnabled && slug === s && teamId === t && developmentRequestVersion === version;
 	}
 
 	async function loadDevelopmentSettings(s: string, t: string, version: number) {
@@ -231,7 +233,7 @@
 		developmentReady = false;
 		savingDevelopment = false;
 		canManageDevelopment = false;
-		if (!s || !t) return;
+		if (!s || !t || !developmentEnabled) return;
 		void loadDevelopmentSettings(s, t, version);
 		return () => {
 			if (developmentRequestVersion === version) developmentRequestVersion++;
@@ -350,7 +352,8 @@
 	}
 
 	async function saveDevelopmentSettings() {
-		if (!canManageDevelopment || developmentLoading || !developmentReady || savingDevelopment) return;
+		if (!developmentEnabled || !canManageDevelopment || developmentLoading || !developmentReady || savingDevelopment)
+			return;
 		const s = slug;
 		const t = teamId;
 		const requestVersion = developmentRequestVersion;
@@ -455,70 +458,75 @@
 			</div>
 		</div>
 
-		<div class="mt-6 rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-secondary)]">
-			<div class="border-b border-[var(--app-border)] px-5 py-4">
-				<p class="text-sm font-medium text-[var(--color-text-primary)]">{m['team_settings.development_defaults']()}</p>
-				<p class="text-xs text-[var(--color-text-tertiary)]">{m['team_settings.development_defaults_desc']()}</p>
+		{#if developmentEnabled}
+			<div class="mt-6 rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-secondary)]">
+				<div class="border-b border-[var(--app-border)] px-5 py-4">
+					<p class="text-sm font-medium text-[var(--color-text-primary)]">
+						{m['team_settings.development_defaults']()}
+					</p>
+					<p class="text-xs text-[var(--color-text-tertiary)]">{m['team_settings.development_defaults_desc']()}</p>
+				</div>
+				<div class="grid gap-4 px-5 py-4 sm:grid-cols-2">
+					{#if !canManageDevelopment}<p
+							class="rounded-md border border-[var(--app-border)] p-3 text-xs text-[var(--color-text-tertiary)] sm:col-span-2"
+						>
+							{m['team_settings.development_admin_only']()}
+						</p>{/if}
+					<div class="space-y-1">
+						<Label>{m['team_settings.repository']()}</Label><Select.Root
+							type="single"
+							value={developmentRepositoryId}
+							disabled={developmentLoading || !developmentReady || !canManageDevelopment}
+							onValueChange={(value) => value && (developmentRepositoryId = value)}
+							><Select.Trigger class="w-full"
+								>{developmentLoading
+									? m['team_settings.loading']()
+									: (developmentRepositories.find((item) => item.id === developmentRepositoryId)?.full_name ??
+										m['team_settings.use_workspace_default']())}</Select.Trigger
+							><Select.Content
+								><Select.Item value="inherit" label={m['team_settings.use_workspace_default']()}
+									>{m['team_settings.use_workspace_default']()}</Select.Item
+								>{#each developmentRepositories as repository}<Select.Item
+										value={repository.id}
+										label={repository.full_name}>{repository.full_name}</Select.Item
+									>{/each}</Select.Content
+							></Select.Root
+						>
+					</div>
+					<div class="space-y-1">
+						<Label>{m['team_settings.environment']()}</Label><Select.Root
+							type="single"
+							value={developmentEnvironmentId}
+							disabled={developmentLoading || !developmentReady || !canManageDevelopment}
+							onValueChange={(value) => value && (developmentEnvironmentId = value)}
+							><Select.Trigger class="w-full"
+								>{developmentLoading
+									? m['team_settings.loading']()
+									: (developmentEnvironments.find((item) => item.id === developmentEnvironmentId)?.name ??
+										m['team_settings.use_workspace_default']())}</Select.Trigger
+							><Select.Content
+								><Select.Item value="inherit" label={m['team_settings.use_workspace_default']()}
+									>{m['team_settings.use_workspace_default']()}</Select.Item
+								>{#each developmentEnvironments as environment}<Select.Item
+										value={environment.id}
+										label={environment.name}>{environment.name}</Select.Item
+									>{/each}</Select.Content
+							></Select.Root
+						>
+					</div>
+					<div class="flex justify-end sm:col-span-2">
+						<Button
+							size="sm"
+							onclick={saveDevelopmentSettings}
+							disabled={developmentLoading || !developmentReady || savingDevelopment || !canManageDevelopment}
+							>{savingDevelopment
+								? m['team_settings.saving']()
+								: m['team_settings.save_development_defaults']()}</Button
+						>
+					</div>
+				</div>
 			</div>
-			<div class="grid gap-4 px-5 py-4 sm:grid-cols-2">
-				{#if !canManageDevelopment}<p
-						class="rounded-md border border-[var(--app-border)] p-3 text-xs text-[var(--color-text-tertiary)] sm:col-span-2"
-					>
-						{m['team_settings.development_admin_only']()}
-					</p>{/if}
-				<div class="space-y-1">
-					<Label>{m['team_settings.repository']()}</Label><Select.Root
-						type="single"
-						value={developmentRepositoryId}
-						disabled={developmentLoading || !developmentReady || !canManageDevelopment}
-						onValueChange={(value) => value && (developmentRepositoryId = value)}
-						><Select.Trigger class="w-full"
-							>{developmentLoading
-								? m['team_settings.loading']()
-								: (developmentRepositories.find((item) => item.id === developmentRepositoryId)?.full_name ??
-									m['team_settings.use_workspace_default']())}</Select.Trigger
-						><Select.Content
-							><Select.Item value="inherit" label={m['team_settings.use_workspace_default']()}
-								>{m['team_settings.use_workspace_default']()}</Select.Item
-							>{#each developmentRepositories as repository}<Select.Item
-									value={repository.id}
-									label={repository.full_name}>{repository.full_name}</Select.Item
-								>{/each}</Select.Content
-						></Select.Root
-					>
-				</div>
-				<div class="space-y-1">
-					<Label>{m['team_settings.environment']()}</Label><Select.Root
-						type="single"
-						value={developmentEnvironmentId}
-						disabled={developmentLoading || !developmentReady || !canManageDevelopment}
-						onValueChange={(value) => value && (developmentEnvironmentId = value)}
-						><Select.Trigger class="w-full"
-							>{developmentLoading
-								? m['team_settings.loading']()
-								: (developmentEnvironments.find((item) => item.id === developmentEnvironmentId)?.name ??
-									m['team_settings.use_workspace_default']())}</Select.Trigger
-						><Select.Content
-							><Select.Item value="inherit" label={m['team_settings.use_workspace_default']()}
-								>{m['team_settings.use_workspace_default']()}</Select.Item
-							>{#each developmentEnvironments as environment}<Select.Item
-									value={environment.id}
-									label={environment.name}>{environment.name}</Select.Item
-								>{/each}</Select.Content
-						></Select.Root
-					>
-				</div>
-				<div class="flex justify-end sm:col-span-2">
-					<Button
-						size="sm"
-						onclick={saveDevelopmentSettings}
-						disabled={developmentLoading || !developmentReady || savingDevelopment || !canManageDevelopment}
-						>{savingDevelopment ? m['team_settings.saving']() : m['team_settings.save_development_defaults']()}</Button
-					>
-				</div>
-			</div>
-		</div>
-
+		{/if}
 		<div class="mt-6 rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-secondary)]">
 			<div class="border-b border-[var(--app-border)] px-5 py-4">
 				<p class="text-sm font-medium text-[var(--color-text-primary)]">{m['team_settings.appearance']()}</p>

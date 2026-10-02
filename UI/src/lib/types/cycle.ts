@@ -44,8 +44,8 @@ export interface UpdateCycleRequest {
 	goals?: string;
 	retrospective?: string;
 	status?: CycleStatus;
-	start_date?: string;
-	end_date?: string;
+	start_date?: string | null;
+	end_date?: string | null;
 }
 
 export interface CompleteCycleRequest {
