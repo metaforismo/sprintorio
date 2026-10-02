@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"github.com/metaforismo/sprintorio/BE/internal/dto"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -62,7 +64,7 @@ func (r *ProjectRepository) Delete(ctx context.Context, id uuid.UUID) error {
 
 func (r *ProjectRepository) IssueStats(ctx context.Context, projectID uuid.UUID) (total int, completed int, cancelled int, err error) {
 	err = r.db.QueryRowContext(ctx,
-		`SELECT COUNT(*), COUNT(*) FILTER (WHERE status = 'done'), COUNT(*) FILTER (WHERE status = 'cancelled') FROM issues WHERE project_id = $1`,
+		fmt.Sprintf(`SELECT COUNT(*), COUNT(*) FILTER (WHERE %s = 'completed'), COUNT(*) FILTER (WHERE %s = 'cancelled') FROM issues i LEFT JOIN team_statuses ts ON ts.id=i.status_id WHERE i.project_id = $1`, issueStatusCategoryExpr("i", "ts"), issueStatusCategoryExpr("i", "ts")),
 		projectID,
 	).Scan(&total, &completed, &cancelled)
 	return
@@ -77,4 +79,26 @@ func (r *ProjectRepository) UpdateDeliveryPlan(ctx context.Context, workspaceID,
 	}
 	rows, err := result.RowsAffected()
 	return rows == 1, err
+}
+
+func (r *ProjectRepository) ValidateReferences(ctx context.Context, workspaceID uuid.UUID, teamID, leadID *uuid.UUID) (bool, error) {
+	var valid bool
+	err := r.db.QueryRowContext(ctx, `SELECT ($2::uuid IS NULL OR EXISTS(SELECT 1 FROM teams WHERE id=$2 AND workspace_id=$1)) AND ($3::uuid IS NULL OR EXISTS(SELECT 1 FROM workspace_members WHERE user_id=$3 AND workspace_id=$1))`, workspaceID, teamID, leadID).Scan(&valid)
+	return valid, err
+}
+func (r *ProjectRepository) IssueStatsByWorkspace(ctx context.Context, workspaceID uuid.UUID) (map[uuid.UUID]dto.ProjectProgressResponse, error) {
+	type row struct {
+		ID        uuid.UUID `db:"project_id"`
+		Total     int       `db:"total"`
+		Completed int       `db:"completed"`
+		Cancelled int       `db:"cancelled"`
+	}
+	var rows []row
+	category := issueStatusCategoryExpr("i", "ts")
+	err := r.db.SelectContext(ctx, &rows, fmt.Sprintf(`SELECT p.id project_id,COUNT(i.id) total,COUNT(i.id) FILTER (WHERE %s='completed') completed,COUNT(i.id) FILTER (WHERE %s='cancelled') cancelled FROM projects p LEFT JOIN issues i ON i.project_id=p.id AND i.workspace_id=p.workspace_id LEFT JOIN team_statuses ts ON ts.id=i.status_id WHERE p.workspace_id=$1 GROUP BY p.id`, category, category), workspaceID)
+	result := make(map[uuid.UUID]dto.ProjectProgressResponse, len(rows))
+	for _, r := range rows {
+		result[r.ID] = dto.ProjectProgressResponse{Total: r.Total, Completed: r.Completed, Cancelled: r.Cancelled}
+	}
+	return result, err
 }

@@ -237,9 +237,11 @@
 				{/if}
 				<Popover.Root bind:open={actionsOpen}>
 					<Popover.Trigger>
-						<Button variant="ghost" size="icon-sm">
-							<MoreHorizontal size={14} />
-						</Button>
+						{#snippet child({ props })}
+							<Button {...props} variant="ghost" size="icon-sm">
+								<MoreHorizontal size={14} />
+							</Button>
+						{/snippet}
 					</Popover.Trigger>
 					<Popover.Content class="w-40 p-1" align="end">
 						<button

@@ -8,28 +8,29 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
 	"github.com/metaforismo/sprintorio/BE/internal/domain"
 	"github.com/metaforismo/sprintorio/BE/internal/dto"
 	"github.com/metaforismo/sprintorio/BE/internal/middleware"
 	"github.com/metaforismo/sprintorio/BE/internal/service"
 	"github.com/metaforismo/sprintorio/BE/pkg/response"
 	"github.com/metaforismo/sprintorio/BE/pkg/validate"
-	"github.com/labstack/echo/v4"
 	log "github.com/sirupsen/logrus"
 )
 
 type AuthHandler struct {
-	authService   *service.AuthService
-	secureCookie  bool
-	loginThrottle *middleware.LoginThrottle
-	isSysAdmin    func(uuid.UUID) bool
+	devMachinesEnabled bool
+	authService        *service.AuthService
+	secureCookie       bool
+	loginThrottle      *middleware.LoginThrottle
+	isSysAdmin         func(uuid.UUID) bool
 }
 
-func NewAuthHandler(authService *service.AuthService, secureCookie bool, loginThrottle *middleware.LoginThrottle, isSysAdmin func(uuid.UUID) bool) *AuthHandler {
+func NewAuthHandler(authService *service.AuthService, secureCookie bool, loginThrottle *middleware.LoginThrottle, isSysAdmin func(uuid.UUID) bool, devMachinesEnabled bool) *AuthHandler {
 	if isSysAdmin == nil {
 		isSysAdmin = func(uuid.UUID) bool { return false }
 	}
-	return &AuthHandler{authService: authService, secureCookie: secureCookie, loginThrottle: loginThrottle, isSysAdmin: isSysAdmin}
+	return &AuthHandler{devMachinesEnabled: devMachinesEnabled, authService: authService, secureCookie: secureCookie, loginThrottle: loginThrottle, isSysAdmin: isSysAdmin}
 }
 
 func (h *AuthHandler) Register(c echo.Context) error {
@@ -163,12 +164,13 @@ func (h *AuthHandler) UpdateProfile(c echo.Context) error {
 
 func (h *AuthHandler) userResponse(user *domain.User) dto.UserResponse {
 	return dto.UserResponse{
-		ID:          user.ID.String(),
-		Email:       user.Email,
-		Name:        user.Name,
-		DisplayName: user.DisplayName,
-		AvatarURL:   user.AvatarURL,
-		IsSysAdmin:  h.isSysAdmin(user.ID),
+		ID:                 user.ID.String(),
+		Email:              user.Email,
+		Name:               user.Name,
+		DisplayName:        user.DisplayName,
+		AvatarURL:          user.AvatarURL,
+		IsSysAdmin:         h.isSysAdmin(user.ID),
+		DevMachinesEnabled: h.devMachinesEnabled,
 	}
 }
 

@@ -148,7 +148,7 @@
 			cycles = [cycle, ...cycles];
 			appToast.success(m['cycles.toast.created']());
 		} catch (err: any) {
-			appToast.apiError(err, m['cycles.toast.failed_create']());
+			throw err;
 		}
 	}
 

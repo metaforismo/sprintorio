@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/metaforismo/sprintorio/BE/pkg/validate"
 	"strings"
 
 	"github.com/google/uuid"
@@ -13,6 +14,7 @@ import (
 )
 
 var (
+	ErrInvalidTeam        = errors.New("invalid team")
 	ErrTeamNotFound       = errors.New("team not found")
 	ErrTeamMemberNotFound = errors.New("team member not found")
 )
@@ -27,6 +29,13 @@ func NewTeamService(teamRepo repository.TeamRepo, teamStatusRepo repository.Team
 }
 
 func (s *TeamService) Create(ctx context.Context, workspaceID uuid.UUID, creatorID uuid.UUID, req dto.CreateTeamRequest) (*domain.Team, error) {
+	if err := validate.Struct(&req); err != nil {
+		return nil, fmt.Errorf("%w: invalid team fields", ErrInvalidTeam)
+	}
+	req.Name = strings.TrimSpace(req.Name)
+	if req.Name == "" {
+		return nil, fmt.Errorf("%w: name must not be blank", ErrInvalidTeam)
+	}
 	team := &domain.Team{
 		ID:          uuid.New(),
 		WorkspaceID: workspaceID,
@@ -37,16 +46,11 @@ func (s *TeamService) Create(ctx context.Context, workspaceID uuid.UUID, creator
 		Icon:        req.Icon,
 	}
 
-	if err := s.teamRepo.Create(ctx, team); err != nil {
-		return nil, err
-	}
-
 	// Add creator as team member
 	member := &domain.TeamMember{
 		TeamID: team.ID,
 		UserID: creatorID,
 	}
-	_ = s.teamRepo.AddMember(ctx, member)
 
 	// Create default statuses for the new team
 	defaultStatuses := []struct {
@@ -62,6 +66,7 @@ func (s *TeamService) Create(ctx context.Context, workspaceID uuid.UUID, creator
 		{"Done", "done", domain.StatusCategoryCompleted, 4},
 		{"Cancelled", "cancelled", domain.StatusCategoryCancelled, 5},
 	}
+	statuses := make([]domain.TeamStatus, 0, len(defaultStatuses))
 	for _, ds := range defaultStatuses {
 		ts := &domain.TeamStatus{
 			ID:        uuid.New(),
@@ -72,9 +77,12 @@ func (s *TeamService) Create(ctx context.Context, workspaceID uuid.UUID, creator
 			Position:  ds.Position,
 			IsDefault: true,
 		}
-		_ = s.teamStatusRepo.Create(ctx, ts)
+		statuses = append(statuses, *ts)
 	}
 
+	if err := s.teamRepo.CreateWithMemberAndStatuses(ctx, team, member, statuses); err != nil {
+		return nil, err
+	}
 	return team, nil
 }
 
@@ -86,14 +94,25 @@ func (s *TeamService) ListByWorkspace(ctx context.Context, workspaceID uuid.UUID
 	return s.teamRepo.ListByWorkspace(ctx, workspaceID)
 }
 
-func (s *TeamService) Update(ctx context.Context, id uuid.UUID, req dto.UpdateTeamRequest) (*domain.Team, error) {
+func (s *TeamService) Update(ctx context.Context, workspaceID, id uuid.UUID, req dto.UpdateTeamRequest) (*domain.Team, error) {
 	team, err := s.teamRepo.GetByID(ctx, id)
-	if err != nil || team == nil {
-		return nil, fmt.Errorf("team not found")
+	if err != nil {
+		return nil, err
+	}
+	if team == nil || team.WorkspaceID != workspaceID {
+		return nil, ErrTeamNotFound
+	}
+	if err := validate.Struct(&req); err != nil {
+		return nil, fmt.Errorf("%w: invalid team fields", ErrInvalidTeam)
 	}
 
+	copy := *team
+	team = &copy
 	if req.Name != nil {
-		team.Name = *req.Name
+		team.Name = strings.TrimSpace(*req.Name)
+		if team.Name == "" {
+			return nil, fmt.Errorf("%w: name must not be blank", ErrInvalidTeam)
+		}
 	}
 	if req.Description != nil {
 		team.Description = req.Description

@@ -69,12 +69,9 @@ export type ShortcutDef = {
 
 const SEQUENCE_TIMEOUT = 500; // ms
 
-export function createShortcutEngine(defs: ShortcutDef[]) {
+export function createShortcutEngine(defs: ShortcutDef[] | (() => ShortcutDef[])) {
 	let pendingKeys: string[] = [];
 	let pendingTimer: ReturnType<typeof setTimeout> | null = null;
-
-	const sequences = defs.filter((d) => d.keys && d.keys.length > 0);
-	const singles = defs.filter((d) => d.key && !d.keys);
 
 	function resetPending() {
 		pendingKeys = [];
@@ -85,12 +82,11 @@ export function createShortcutEngine(defs: ShortcutDef[]) {
 	}
 
 	function handler(e: KeyboardEvent) {
+		const currentDefs = typeof defs === 'function' ? defs() : defs;
+		const sequences = currentDefs.filter((d) => d.keys && d.keys.length > 0);
+		const singles = currentDefs.filter((d) => d.key && !d.keys);
 		const target = e.target as HTMLElement;
-		if (
-			target.tagName === 'INPUT' ||
-			target.tagName === 'TEXTAREA' ||
-			target.isContentEditable
-		) {
+		if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
 			return;
 		}
 
@@ -99,11 +95,7 @@ export function createShortcutEngine(defs: ShortcutDef[]) {
 		// Check single-key shortcuts with modifiers first
 		for (const s of singles) {
 			const metaOrCtrl = s.meta || s.ctrl;
-			if (
-				key === s.key!.toLowerCase() &&
-				(!metaOrCtrl || e.metaKey || e.ctrlKey) &&
-				(!s.shift || e.shiftKey)
-			) {
+			if (key === s.key!.toLowerCase() && (!metaOrCtrl || e.metaKey || e.ctrlKey) && (!s.shift || e.shiftKey)) {
 				// Don't match single-key shortcuts if we're mid-sequence (unless they have modifiers)
 				if (pendingKeys.length > 0 && !metaOrCtrl) continue;
 				e.preventDefault();

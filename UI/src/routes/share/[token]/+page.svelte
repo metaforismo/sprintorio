@@ -69,9 +69,7 @@
 			}
 		}
 
-		return [...map.values()]
-			.filter(g => g.issues.length > 0)
-			.sort((a, b) => a.position - b.position);
+		return [...map.values()].filter((g) => g.issues.length > 0).sort((a, b) => a.position - b.position);
 	});
 
 	const token = $derived($page.params.token ?? '');
@@ -172,9 +170,7 @@
 		loadIssues();
 	}
 
-	const hasFilters = $derived(
-		Object.keys(filters).length > 0
-	);
+	const hasFilters = $derived(Object.keys(filters).length > 0);
 </script>
 
 <svelte:head>
@@ -182,8 +178,7 @@
 </svelte:head>
 
 {#if loading}
-	<div class="flex h-[60vh] items-center justify-center">
-	</div>
+	<div class="flex h-[60vh] items-center justify-center"></div>
 {:else if error}
 	<div class="flex h-[60vh] flex-col items-center justify-center gap-2">
 		<Globe size={32} class="text-[var(--color-text-tertiary)]" />
@@ -199,7 +194,9 @@
 				<span class="text-xs text-[var(--color-text-tertiary)]">/</span>
 				<span class="text-sm font-medium text-[var(--color-text-primary)]">{meta.scope_name}</span>
 			</div>
-			<span class="rounded-full bg-[var(--color-bg-tertiary)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider">
+			<span
+				class="rounded-full bg-[var(--color-bg-tertiary)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider"
+			>
 				Read only
 			</span>
 			<div class="flex-1"></div>
@@ -228,17 +225,24 @@
 		{#if meta.statuses && meta.statuses.length > 0}
 			<Popover.Root bind:open={statusOpen}>
 				<Popover.Trigger>
-					<button class="flex items-center gap-1 rounded-md border {filters.status ? 'border-[var(--app-accent)]/30 bg-[var(--app-accent)]/10 text-[var(--app-accent-light)]' : 'border-[var(--app-border)] text-[var(--color-text-tertiary)]'} px-2 py-0.5 text-xs hover:bg-[var(--color-bg-hover)]">
-						<CircleDashed size={12} />
-						{#if getStatusValues().length === 0}
-							Status
-						{:else if getStatusValues().length === 1}
-							{@const st = meta.statuses?.find(s => s.id === getStatusValues()[0])}
-							{st?.name ?? 'Status'}
-						{:else}
-							{getStatusValues().length} statuses
-						{/if}
-					</button>
+					{#snippet child({ props })}
+						<button
+							{...props}
+							class="flex items-center gap-1 rounded-md border {filters.status
+								? 'border-[var(--app-accent)]/30 bg-[var(--app-accent)]/10 text-[var(--app-accent-light)]'
+								: 'border-[var(--app-border)] text-[var(--color-text-tertiary)]'} px-2 py-0.5 text-xs hover:bg-[var(--color-bg-hover)]"
+						>
+							<CircleDashed size={12} />
+							{#if getStatusValues().length === 0}
+								Status
+							{:else if getStatusValues().length === 1}
+								{@const st = meta?.statuses?.find((s) => s.id === getStatusValues()[0])}
+								{st?.name ?? 'Status'}
+							{:else}
+								{getStatusValues().length} statuses
+							{/if}
+						</button>
+					{/snippet}
 				</Popover.Trigger>
 				<Popover.Content class="w-44 p-1" align="start">
 					{#each meta.statuses as st}
@@ -258,16 +262,23 @@
 		<!-- Priority filter -->
 		<Popover.Root bind:open={priorityOpen}>
 			<Popover.Trigger>
-				<button class="flex items-center gap-1 rounded-md border {filters.priority ? 'border-[var(--app-accent)]/30 bg-[var(--app-accent)]/10 text-[var(--app-accent-light)]' : 'border-[var(--app-border)] text-[var(--color-text-tertiary)]'} px-2 py-0.5 text-xs hover:bg-[var(--color-bg-hover)]">
-					<Signal size={12} />
-					{#if getPriorityValues().length === 0}
-						Priority
-					{:else if getPriorityValues().length === 1}
-						{getPriorityLabel(Number(getPriorityValues()[0]) as IssuePriority)}
-					{:else}
-						{getPriorityValues().length} priorities
-					{/if}
-				</button>
+				{#snippet child({ props })}
+					<button
+						{...props}
+						class="flex items-center gap-1 rounded-md border {filters.priority
+							? 'border-[var(--app-accent)]/30 bg-[var(--app-accent)]/10 text-[var(--app-accent-light)]'
+							: 'border-[var(--app-border)] text-[var(--color-text-tertiary)]'} px-2 py-0.5 text-xs hover:bg-[var(--color-bg-hover)]"
+					>
+						<Signal size={12} />
+						{#if getPriorityValues().length === 0}
+							Priority
+						{:else if getPriorityValues().length === 1}
+							{getPriorityLabel(Number(getPriorityValues()[0]) as IssuePriority)}
+						{:else}
+							{getPriorityValues().length} priorities
+						{/if}
+					</button>
+				{/snippet}
 			</Popover.Trigger>
 			<Popover.Content class="w-44 p-1" align="start">
 				{#each Object.entries(getPriorityLabels()) as [value, label]}
@@ -286,7 +297,10 @@
 		<div class="flex-1"></div>
 
 		{#if hasFilters}
-			<button onclick={clearFilters} class="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">
+			<button
+				onclick={clearFilters}
+				class="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
+			>
 				Clear filters
 			</button>
 		{/if}
@@ -338,7 +352,10 @@
 			{/if}
 			{#if hasMore}
 				<div class="flex justify-center py-4">
-					<button onclick={loadMore} class="rounded-md border border-[var(--app-border)] px-4 py-1.5 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]">
+					<button
+						onclick={loadMore}
+						class="rounded-md border border-[var(--app-border)] px-4 py-1.5 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]"
+					>
 						Load more
 					</button>
 				</div>

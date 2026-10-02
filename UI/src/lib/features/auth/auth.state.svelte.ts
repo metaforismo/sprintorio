@@ -4,13 +4,17 @@ import { getMe } from '$lib/api/auth';
 class AuthState {
 	user = $state<User | null>(null);
 	loading = $state(true);
+	initError = $state(false);
 	authenticated = $derived(this.user !== null);
 
 	async init() {
+		this.loading = true;
+		this.initError = false;
 		try {
 			this.user = await getMe();
-		} catch {
-			this.user = null;
+		} catch (error) {
+			if (error instanceof Error && error.message === 'Unauthorized') this.user = null;
+			else this.initError = true;
 		} finally {
 			this.loading = false;
 		}

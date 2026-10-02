@@ -14,7 +14,7 @@
     { icon: ScrollText, label: "Apache 2.0 license" },
     { icon: Users, label: "$0 per user" },
     { icon: Server, label: "Self-hosted" },
-    { icon: Terminal, label: "Manual release checks" }
+    { icon: Terminal, label: "Manual release checks" },
   ];
 </script>
 
@@ -33,7 +33,10 @@
 
   <div class="mx-auto max-w-6xl px-6 text-center">
     <!-- Release badge -->
-    <div class="animate-fade-up flex justify-center" style="animation-delay: 0ms">
+    <div
+      class="animate-fade-up flex justify-center"
+      style="animation-delay: 0ms"
+    >
       <a
         href={release.releaseUrl}
         target="_blank"
@@ -41,10 +44,14 @@
         class="group inline-flex items-center gap-2.5 rounded-full border border-brand-400/30 bg-brand-400/10 py-1.5 pr-4 pl-2.5 text-xs font-medium text-brand-200 transition-colors hover:border-brand-400/50 hover:bg-brand-400/15"
       >
         <span class="relative flex size-2">
-          <span class="animate-pulse-dot absolute inline-flex size-2 rounded-full bg-brand-300"></span>
+          <span
+            class="animate-pulse-dot absolute inline-flex size-2 rounded-full bg-brand-300"
+          ></span>
         </span>
         {release.version} · Apache 2.0 source
-        <ArrowRight class="size-3 transition-transform group-hover:translate-x-0.5" />
+        <ArrowRight
+          class="size-3 transition-transform group-hover:translate-x-0.5"
+        />
       </a>
     </div>
 
@@ -59,8 +66,8 @@
       class="animate-fade-up mx-auto mt-6 max-w-2xl text-lg text-muted-foreground sm:text-xl"
       style="animation-delay: 200ms"
     >
-      Define the objective. Plan milestones. Track issues and record manual test results with evidence.
-      Sprintorio keeps the work and the release decision together on your own infrastructure.
+      Plan the product, track the work and verify each release. Briefs,
+      milestones, issues and manual test evidence in one self-hosted workspace.
     </p>
 
     <div
@@ -103,17 +110,6 @@
       {/each}
     </div>
 
-    <p
-      class="animate-fade-up mt-6 text-sm text-muted-foreground"
-      style="animation-delay: 500ms"
-    >
-      Press <kbd class="key h-6! min-w-6! text-xs">C</kbd> to create an issue.
-      <kbd class="key h-6! min-w-6! text-xs">⌘</kbd><kbd
-        class="key h-6! min-w-6! text-xs">K</kbd
-      >
-      to search issues and navigate.
-    </p>
-
     <!-- Product screenshot -->
     <div
       class="animate-fade-up relative mx-auto mt-16 max-w-5xl"
@@ -140,18 +136,24 @@
         <div class="relative overflow-hidden">
           <div class="beam"></div>
           <picture>
-            <source media="(max-width: 640px)" srcset="/product-screenshot-720.png 720w" sizes="100vw" width="720" height="1600" />
-          <img
-            src="/product-screenshot.png"
-            srcset="/product-screenshot-1440.png 1440w"
-            sizes="(max-width: 640px) 100vw, (max-width: 1200px) 92vw, 1152px"
-            alt="Sprintorio project delivery with product brief, milestones and manual test evidence"
-            width="1440"
-            height="1600"
-            class="w-full h-auto max-h-[520px] object-cover object-top"
-            loading="eager"
-            fetchpriority="high"
-          />
+            <source
+              media="(max-width: 640px)"
+              srcset="/product-screenshot-720.png 720w"
+              sizes="100vw"
+              width="720"
+              height="1600"
+            />
+            <img
+              src="/product-screenshot.png"
+              srcset="/product-screenshot-1440.png 1440w"
+              sizes="(max-width: 640px) 100vw, (max-width: 1200px) 92vw, 1152px"
+              alt="Sprintorio project delivery with product brief, milestones and manual test evidence"
+              width="1440"
+              height="1600"
+              class="w-full h-auto max-h-[520px] object-cover object-top"
+              loading="eager"
+              fetchpriority="high"
+            />
           </picture>
         </div>
       </div>

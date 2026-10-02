@@ -22,7 +22,7 @@ go test ./... -race -count=1 -coverprofile=coverage.out -covermode=atomic
 go tool cover -func=coverage.out
 ```
 
-The suite checks persisted plans, workspace isolation, concurrent versioned saves, migration behavior, and workspace export/import. Import keeps local milestone/test IDs intact and remaps application asset URLs. Version conflicts return HTTP 409 instead of silently overwriting another save.
+The suite checks persisted plans, workspace isolation, concurrent versioned saves, project metadata/date validation, nullable updates, team/status rollback, nested team-resource scope, migration behavior, and workspace export/import. Import keeps local milestone/test IDs intact and remaps application asset URLs. Version conflicts return HTTP 409 instead of silently overwriting another save.
 
 ## Browser checks
 
@@ -35,7 +35,7 @@ npm run validate
 npm run test:responsive
 ```
 
-The UI browser suite mocks API responses to exercise forms, permissions, conflict recovery, keyboard flows, and readiness states. Backend integration tests separately exercise actual PostgreSQL persistence. Mocked browser fixtures and screenshots are examples; they are not live customer data or proof of a full application deployment.
+The UI browser suite mocks API responses to exercise forms, failed-draft retry, permissions, conflict recovery, selector keyboard/focus behavior, bounded session recovery, project navigation, filtered test deletion, and readiness states. Backend integration tests separately exercise actual PostgreSQL persistence. Mocked browser fixtures and screenshots are examples; they are not live customer data or proof of a full application deployment.
 
 For an already installed Chrome browser, use `PLAYWRIGHT_CHANNEL=chrome` with the browser-test commands.
 

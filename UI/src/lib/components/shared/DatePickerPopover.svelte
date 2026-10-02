@@ -64,34 +64,40 @@
 
 <Popover.Root bind:open>
 	<Popover.Trigger>
-		<button class="flex items-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--color-bg-secondary)] px-2.5 py-1 text-xs hover:bg-[var(--color-bg-hover)] {displayDate && colorClass ? colorClass : 'text-[var(--color-text-secondary)]'}">
-			<CalendarIcon size={12} />
-			{#if displayDate}
-				{displayDate}
-				<span
-					onclick={handleClear}
-					onkeydown={(e) => { if (e.key === 'Enter') handleClear(e as unknown as MouseEvent); }}
-					role="button"
-					tabindex={0}
-					class="ml-1 inline-flex rounded p-0.5 hover:bg-[var(--color-bg-hover)]"
-				>
-					<X size={10} />
-				</span>
-			{:else}
-				{placeholder}
-			{/if}
-		</button>
+		{#snippet child({ props })}
+			<button
+				{...props}
+				class="flex items-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--color-bg-secondary)] px-2.5 py-1 text-xs hover:bg-[var(--color-bg-hover)] {displayDate &&
+				colorClass
+					? colorClass
+					: 'text-[var(--color-text-secondary)]'}"
+			>
+				<CalendarIcon size={12} />
+				{#if displayDate}
+					{displayDate}
+					<span
+						onclick={handleClear}
+						onkeydown={(e) => {
+							if (e.key === 'Enter') handleClear(e as unknown as MouseEvent);
+						}}
+						role="button"
+						tabindex={0}
+						class="ml-1 inline-flex rounded p-0.5 hover:bg-[var(--color-bg-hover)]"
+					>
+						<X size={10} />
+					</span>
+				{:else}
+					{placeholder}
+				{/if}
+			</button>
+		{/snippet}
 	</Popover.Trigger>
 	<Popover.Content class="w-auto p-0" align="start">
 		{#if dueDateMode}
 			<DueDatePickerPanel {value} {onchange} close={() => (open = false)} />
 		{:else}
 			{#key value}
-				<Calendar
-					type="single"
-					value={calendarValue}
-					onValueChange={handleSelect}
-				/>
+				<Calendar type="single" value={calendarValue} onValueChange={handleSelect} />
 			{/key}
 		{/if}
 	</Popover.Content>

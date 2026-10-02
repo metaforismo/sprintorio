@@ -1,0 +1,45 @@
+schema_version: 1
+status: approved
+concept:
+  id: A1
+  path: assets/brand/concept-a1.png
+  sha256: 35356a081f236765c40720f1819c2c30ded9de7049b46e353dbd48042c1270fa
+approval:
+  explicitly_approved: true
+  approved_at: 2026-10-02
+  evidence_note: User explicitly selected Approva A1 in the concept review.
+design_lock:
+  product_promise: From product idea to a tested release.
+  recognition_anchor: S-shaped path with central negative space
+  metaphor: Organized progress from planning to verification
+  silhouette: Two broad interlocking stepped strokes
+  composition: Centered frontal mark with generous margin
+  palette:
+    - name: backdrop
+      value: '#15151b'
+    - name: upper stroke
+      value: '#f5f4fa'
+    - name: lower stroke
+      value: '#8b7cf8'
+  protected_invariants:
+    - Two stepped strokes and central negative space
+    - Centered composition and palette
+  permitted_production_translations:
+    - Deliberate clean SVG reconstruction without changing the identity
+    - Add the Sprintorio wordmark beside the approved square mark
+production_plan:
+  authorized: true
+  delivery_route: web-svg
+  composer_feasibility: Not applicable to this web platform
+  layers:
+    - order: 1
+      id: backdrop
+      source_decision: SVG solid fill
+    - order: 2
+      id: upper-stroke
+      source_decision: SVG path
+    - order: 3
+      id: lower-stroke
+      source_decision: SVG path
+  reapproval_triggers:
+    - Changed recognition anchor, silhouette, palette, or composition

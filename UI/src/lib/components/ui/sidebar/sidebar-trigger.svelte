@@ -25,7 +25,7 @@
 	size="icon-sm"
 	class={cn("cn-sidebar-trigger", className)}
 	type="button"
-	onclick={(e) => {
+	onclick={(e: MouseEvent) => {
 		onclick?.(e);
 		sidebar.toggle();
 	}}

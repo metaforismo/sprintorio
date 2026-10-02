@@ -20,7 +20,7 @@ class ApiClient {
 		return JSON.parse(body) as T;
 	}
 
-	private async fetchResponse(path: string, options: RequestInit = {}): Promise<Response> {
+	private async fetchResponse(path: string, options: RequestInit = {}, retried = false): Promise<Response> {
 		const headers = new Headers(options.headers);
 		if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
 			headers.set('Content-Type', 'application/json');
@@ -32,9 +32,9 @@ class ApiClient {
 		});
 
 		if (res.status === 401) {
-			if (!path.includes('/auth/refresh')) {
+			if (!path.includes('/auth/refresh') && !retried) {
 				await this.refresh();
-				return this.fetchResponse(path, options);
+				return this.fetchResponse(path, options, true);
 			}
 			goto('/login');
 			throw new Error('Unauthorized');

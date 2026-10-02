@@ -1,0 +1,7 @@
+Use case: logo-brand
+Asset type: original whole-square logo/app-icon concept for Sprintorio, a web platform for product planning, projects, milestones and manual testing.
+Product promise: move an idea through focused work to a verified release.
+Primary request: a bold geometric S-shaped path constructed from two interlocking broad stepped strokes, with meaningful central negative space. The continuous route is the recognition anchor, suggesting organized progress without using a literal checkmark, arrow, checklist, or letters printed as text. Carefully balanced, ownable flat emblem.
+Style/medium: precise vector-like brand design, flat solid geometry, mature and calm, no glass or 3D effects.
+Composition: one centered dominant emblem, generous internal margin, exact square artwork, edge-to-edge deep graphite background #15151b, no surrounding presentation canvas, no baked rounded-square mask. Focal symbol light warm white #f5f4fa with a restrained violet #8b7cf8 lower terminal accent.
+Constraints: one logo only, no wordmark, no other text, no mockups, no watermark, no glow, no gradients, no thin lines, no micro-detail. Must read clearly at32px and as a monochrome silhouette. Suitable for clean deliberate SVG reconstruction after visual approval. Original identity only. Avoid Linear circular striped logo, Asana three-dot triangle, Jira diamond/loop, generic infinity/ribbon/orbit/sparkle symbols.

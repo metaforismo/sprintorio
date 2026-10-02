@@ -51,7 +51,8 @@
 		ChevronRight,
 		SquareUser,
 		Box,
-		Settings2
+		Settings2,
+		Plus
 	} from 'lucide-svelte';
 	import { sidebarState } from '$lib/features/layout/sidebar.state.svelte';
 	import SidebarToggle from '$lib/components/layout/SidebarToggle.svelte';
@@ -65,6 +66,13 @@
 	let loading = $state(true);
 	let statusOpen = $state(false);
 	let actionsOpen = $state(false);
+	let deleteOpen = $state(false);
+	let deleting = $state(false);
+	let projectError = $state(false);
+	let canManageProject = $state(false);
+	let cyclesLoading = $state(false);
+	let cyclesError = $state(false);
+	let cyclesVersion = 0;
 	let viewMode = $state<'list' | 'gantt' | 'delivery'>('list');
 	let projectRequestVersion = 0;
 	let lastSelectedId = $state<string | null>(null);
@@ -118,11 +126,13 @@
 
 	async function loadProject(s: string, pid: string, request: number) {
 		loading = true;
+		projectError = false;
 		project = null;
 		try {
-			const nextProject = await getProject(s, pid);
+			const [nextProject, workspace] = await Promise.all([getProject(s, pid), getWorkspace(s)]);
 			if (request !== projectRequestVersion) return;
 			project = nextProject;
+			canManageProject = ['owner', 'admin', 'member'].includes(workspace.current_user_role);
 			await issuesState.load(s, viewMode === 'gantt' ? { project: pid, per_page: '200' } : { project: pid });
 			if (request !== projectRequestVersion) return;
 			const firstTeamId = issuesState.issues[0]?.team_id;
@@ -132,17 +142,9 @@
 			const nextTeams = await listTeams(s);
 			if (request !== projectRequestVersion) return;
 			teams = nextTeams;
-			const allCycles: Cycle[] = [];
-			for (const team of teams) {
-				const tc = await listCycles(s, team.id);
-				allCycles.push(...tc);
-			}
-			if (request !== projectRequestVersion) return;
-			cycles = allCycles;
 		} catch {
 			if (request !== projectRequestVersion) return;
-			appToast.error(m['projects.toast.not_found']());
-			goto(`/${slug}/projects`);
+			projectError = true;
 		} finally {
 			if (request === projectRequestVersion) loading = false;
 		}
@@ -161,7 +163,6 @@
 		const pid = projectId;
 		const version = ++developmentRequestVersion;
 		developmentSaveVersion++;
-		developmentOpen = false;
 		developmentRepositories = [];
 		developmentEnvironments = [];
 		developmentRepositoryId = 'inherit';
@@ -170,7 +171,7 @@
 		developmentReady = false;
 		savingDevelopment = false;
 		canManageDevelopment = false;
-		if (!s || !pid) return;
+		if (!s || !pid || !developmentOpen) return;
 		void loadDevelopmentSettings(s, pid, version);
 		return () => {
 			if (developmentRequestVersion === version) developmentRequestVersion++;
@@ -178,35 +179,80 @@
 		};
 	});
 
-	async function handleStatusChange(status: ProjectStatus) {
-		if (!project) return;
+	async function loadTimeline() {
+		const request = ++cyclesVersion;
+		const s = slug;
+		const pid = projectId;
+		cyclesLoading = true;
+		cyclesError = false;
 		try {
-			project = await updateProject(slug, project.id, { status });
+			await issuesState.load(s, { project: pid, per_page: '200' });
+			if (request !== cyclesVersion || s !== slug || pid !== projectId) return;
+			const teamIds = [
+				...new Set(
+					[project?.team_id, ...issuesState.issues.map((issue) => issue.team_id)].filter((id): id is string => !!id)
+				)
+			];
+			const next = await Promise.all(teamIds.map((id) => listCycles(s, id)));
+			if (request === cyclesVersion && s === slug && pid === projectId) cycles = next.flat();
+		} catch {
+			if (request === cyclesVersion) cyclesError = true;
+		} finally {
+			if (request === cyclesVersion) cyclesLoading = false;
+		}
+	}
+	$effect(() => {
+		if (viewMode !== 'gantt' || !project) return;
+		void loadTimeline();
+		return () => {
+			cyclesVersion++;
+		};
+	});
+
+	async function handleStatusChange(status: ProjectStatus) {
+		if (!project || !canManageProject) return;
+		const s = slug,
+			pid = project.id,
+			request = projectRequestVersion;
+		try {
+			const updated = await updateProject(s, pid, { status });
+			if (s !== slug || pid !== projectId || request !== projectRequestVersion) return;
+			project = updated;
 			statusOpen = false;
 			appToast.success(m['projects.toast.status_updated']());
 		} catch (err: any) {
-			appToast.apiError(err, m['projects.toast.failed_update_status']());
+			if (s === slug && pid === projectId && request === projectRequestVersion)
+				appToast.apiError(err, m['projects.toast.failed_update_status']());
 		}
 	}
 
 	async function handleDateChange(field: 'start_date' | 'target_date', value: string | null) {
-		if (!project) return;
+		if (!project || !canManageProject) return;
+		const s = slug,
+			pid = project.id,
+			request = projectRequestVersion;
 		try {
-			project = await updateProject(slug, project.id, { [field]: value });
+			const updated = await updateProject(s, pid, { [field]: value });
+			if (s !== slug || pid !== projectId || request !== projectRequestVersion) return;
+			project = updated;
 			appToast.success(m['projects.toast.date_updated']());
 		} catch (err: any) {
-			appToast.apiError(err, m['projects.toast.failed_update_date']());
+			if (s === slug && pid === projectId && request === projectRequestVersion)
+				appToast.apiError(err, m['projects.toast.failed_update_date']());
 		}
 	}
 
 	async function handleDelete() {
-		if (!project) return;
+		if (!project || deleting || !canManageProject) return;
+		deleting = true;
 		try {
 			await deleteProject(slug, project.id);
 			appToast.success(m['projects.toast.deleted']());
 			goto(`/${slug}/projects`);
 		} catch (err: any) {
 			appToast.apiError(err, m['projects.toast.failed_delete']());
+		} finally {
+			deleting = false;
 		}
 	}
 
@@ -269,14 +315,14 @@
 </script>
 
 <div class="flex h-full flex-col">
-	{#if !loading && project}
+	{#if !loading && project && !projectError}
 		<!-- Header -->
 		<div
 			class="flex min-h-[49px] flex-wrap items-center justify-between gap-2 border-b border-[var(--app-border)] px-4 py-2 sm:px-6"
 		>
-			<div class="flex items-center gap-3">
+			<div class="flex min-w-0 flex-wrap items-center gap-3">
 				<SidebarToggle />
-				<nav class="flex items-center gap-1.5 text-sm">
+				<nav aria-label="Breadcrumb" class="flex min-w-0 flex-wrap items-center gap-1.5 text-sm">
 					{#if projectTeam}
 						<a
 							href="/{slug}/teams/{projectTeam.id}"
@@ -295,10 +341,10 @@
 						</a>
 						<ChevronRight size={12} class="shrink-0 text-[var(--color-text-tertiary)]" />
 					{/if}
-					<span class="font-medium text-[var(--color-text-primary)]">{project.name}</span>
+					<span class="font-medium break-words text-[var(--color-text-primary)]">{project.name}</span>
 				</nav>
 				<Popover.Root bind:open={statusOpen}>
-					<Popover.Trigger>
+					<Popover.Trigger disabled={!canManageProject}>
 						<Badge variant={statusVariant(project.status)} class="cursor-pointer text-[10px]">
 							{m[`projects.status.${project.status}`]()}
 						</Badge>
@@ -320,11 +366,11 @@
 					</Popover.Content>
 				</Popover.Root>
 			</div>
-			<div class="flex items-center gap-2">
+			<div class="flex max-w-full flex-wrap items-center gap-2">
 				<Button
 					variant="ghost"
 					size="icon-sm"
-					disabled={developmentLoading || !developmentReady}
+					aria-label={m['projects.development.settings']()}
 					onclick={() => (developmentOpen = true)}
 					title={developmentLoading
 						? m['projects.development.loading']()
@@ -334,34 +380,41 @@
 								: m['projects.development.view_settings']()
 							: m['projects.development.unavailable']()}><Settings2 size={15} /></Button
 				>
+				<Button
+					disabled={!canManageProject}
+					variant="outline"
+					size="sm"
+					onclick={() => window.dispatchEvent(new CustomEvent('sprintorio:create-issue'))}
+					><Plus size={14} />{m['sidebar.create_issue']()}</Button
+				>
 				<!-- View switcher -->
 				<div class="flex rounded-md border border-[var(--app-border)]">
 					<button
 						onclick={() => (viewMode = 'list')}
 						aria-label="Issue list"
 						aria-pressed={viewMode === 'list'}
-						class="rounded-l-md px-2 py-1 {viewMode === 'list'
+						class="flex items-center rounded-l-md px-2 py-2 {viewMode === 'list'
 							? 'bg-[var(--color-bg-hover)] text-[var(--color-text-primary)]'
 							: 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)]'}"
 						title={m['projects.list_view']()}
 					>
-						<List size={14} />
+						<List size={14} /><span class="ml-1.5 text-xs">{getLocale() === 'it' ? 'Attività' : 'Issues'}</span>
 					</button>
 					<button
 						onclick={() => (viewMode = 'gantt')}
 						aria-label="Gantt chart"
 						aria-pressed={viewMode === 'gantt'}
-						class="px-2 py-1 {viewMode === 'gantt'
+						class="flex items-center px-2 py-2 {viewMode === 'gantt'
 							? 'bg-[var(--color-bg-hover)] text-[var(--color-text-primary)]'
 							: 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)]'}"
 						title={m['projects.gantt_view']()}
 					>
-						<BarChart3 size={14} />
+						<BarChart3 size={14} /><span class="ml-1.5 text-xs">Timeline</span>
 					</button>
 					<button
 						onclick={() => (viewMode = 'delivery')}
 						aria-pressed={viewMode === 'delivery'}
-						class="rounded-r-md px-3 py-1 text-xs {viewMode === 'delivery'
+						class="rounded-r-md px-3 py-2 text-xs {viewMode === 'delivery'
 							? 'bg-[var(--color-bg-hover)] text-[var(--color-text-primary)]'
 							: 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)]'}">Delivery</button
 					>
@@ -369,15 +422,23 @@
 
 				<Popover.Root bind:open={actionsOpen}>
 					<Popover.Trigger>
-						<Button variant="ghost" size="icon-sm">
-							<MoreHorizontal size={14} />
-						</Button>
+						{#snippet child({ props })}
+							<Button
+								{...props}
+								disabled={!canManageProject}
+								variant="ghost"
+								size="icon-sm"
+								aria-label={getLocale() === 'it' ? 'Azioni progetto' : 'Project actions'}
+							>
+								<MoreHorizontal size={14} />
+							</Button>
+						{/snippet}
 					</Popover.Trigger>
 					<Popover.Content class="w-40 p-1" align="end">
 						<button
 							onclick={() => {
 								actionsOpen = false;
-								handleDelete();
+								deleteOpen = true;
 							}}
 							class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-[var(--color-error)] hover:bg-[var(--color-bg-hover)]"
 						>
@@ -391,7 +452,7 @@
 
 		<!-- Project info -->
 		<div class="border-b border-[var(--app-border)] px-6 py-4">
-			<div class="flex items-center gap-4 text-xs text-[var(--color-text-tertiary)]">
+			<div class="flex flex-wrap items-center gap-4 text-xs text-[var(--color-text-tertiary)]">
 				<div class="flex items-center gap-1.5">
 					<Calendar size={12} />
 					<span>{m['projects.start_date']()}</span>
@@ -432,7 +493,16 @@
 		{#if viewMode === 'list'}
 			<div class="flex-1 overflow-y-auto">
 				{#if !issuesState.loading && issuesState.issues.length === 0}
-					<EmptyState title={m['projects.no_issues']()} description={m['projects.no_issues_desc']()} />
+					<EmptyState
+						title={m['projects.no_issues']()}
+						description={m['projects.no_issues_desc']()}
+						action={canManageProject
+							? {
+									label: m['sidebar.create_issue'](),
+									onclick: () => window.dispatchEvent(new CustomEvent('sprintorio:create-issue'))
+								}
+							: undefined}
+					/>
 				{:else}
 					{#each issuesState.issues as issue (issue.id)}
 						<IssueRow
@@ -451,7 +521,21 @@
 			</div>
 		{:else if viewMode === 'gantt'}
 			<div class="flex-1 min-h-0 px-4 py-3">
-				{#if !issuesState.loading}
+				{#if cyclesLoading}
+					<p role="status" class="p-4 text-sm">{m['common.loading']()}</p>
+				{:else if cyclesError}
+					<div role="alert" class="p-4 text-sm">
+						<p>{getLocale() === 'it' ? 'Impossibile caricare la timeline.' : 'Could not load the timeline.'}</p>
+						<Button class="mt-2" variant="outline" onclick={loadTimeline}
+							>{getLocale() === 'it' ? 'Riprova' : 'Retry'}</Button
+						>
+					</div>
+				{:else if !issuesState.loading}
+					{#if issuesState.hasMore}<p role="status" class="mb-3 text-xs text-[var(--color-text-tertiary)]">
+							{getLocale() === 'it'
+								? `Timeline parziale: ${issuesState.issues.length} di ${issuesState.totalCount} attività. Usa l'elenco per caricare le altre.`
+								: `Partial timeline: ${issuesState.issues.length} of ${issuesState.totalCount} issues. Use the issue list to load more.`}
+						</p>{/if}
 					<GanttChart
 						issues={issuesState.issues}
 						{cycles}
@@ -460,8 +544,35 @@
 				{/if}
 			</div>
 		{/if}
+	{:else if loading}<p role="status" class="p-8 text-center text-sm">{m['common.loading']()}</p>
+	{:else if projectError}<div role="alert" class="p-8 text-center">
+			<p class="mb-3 text-sm">
+				{getLocale() === 'it' ? 'Impossibile caricare il progetto.' : 'Could not load this project.'}
+			</p>
+			<Button variant="outline" onclick={() => loadProject(slug, projectId, ++projectRequestVersion)}
+				>{getLocale() === 'it' ? 'Riprova' : 'Retry'}</Button
+			>
+		</div>
 	{/if}
 </div>
+
+<Dialog.Root bind:open={deleteOpen}>
+	<Dialog.Content
+		><Dialog.Header
+			><Dialog.Title>{getLocale() === 'it' ? 'Eliminare il progetto?' : 'Delete project?'}</Dialog.Title
+			><Dialog.Description
+				>{project?.name}. {getLocale() === 'it'
+					? 'Il brief, le milestone e i test verranno eliminati. Le attività rimarranno nel workspace.'
+					: 'The brief, milestones and tests will be deleted. Issues remain in the workspace.'}</Dialog.Description
+			></Dialog.Header
+		><Dialog.Footer
+			><Button variant="outline" disabled={deleting} onclick={() => (deleteOpen = false)}>{m['common.cancel']()}</Button
+			><Button variant="destructive" disabled={deleting} onclick={handleDelete}
+				>{deleting ? m['common.saving']() : m['projects.delete']()}</Button
+			></Dialog.Footer
+		></Dialog.Content
+	>
+</Dialog.Root>
 
 <Dialog.Root bind:open={developmentOpen}>
 	<Dialog.Content class="sm:max-w-md">

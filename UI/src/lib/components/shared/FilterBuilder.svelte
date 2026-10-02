@@ -226,7 +226,10 @@
 	}
 
 	function getSubIssuesChipLabel(): string {
-		return SUB_ISSUE_FILTERS.find((option) => option.value === filters.sub_issues)?.label ?? m['sharedComponents.filter_builder.sub_issues']();
+		return (
+			SUB_ISSUE_FILTERS.find((option) => option.value === filters.sub_issues)?.label ??
+			m['sharedComponents.filter_builder.sub_issues']()
+		);
 	}
 
 	function getChipLabel(key: string): string {
@@ -244,7 +247,9 @@
 			case 'status_type':
 				return m['sharedComponents.filter_builder.status_type']({ type: filters.status_type ?? '' });
 			case 'cycle':
-				return filters.cycle === 'none' ? m['sharedComponents.filter_builder.no_cycle']() : m['sharedComponents.filter_builder.cycle']();
+				return filters.cycle === 'none'
+					? m['sharedComponents.filter_builder.no_cycle']()
+					: m['sharedComponents.filter_builder.cycle']();
 			case 'team':
 				return m['sharedComponents.filter_builder.team']();
 			case 'creator':
@@ -351,7 +356,9 @@
 					</div>
 				{/each}
 				{#if labels.length === 0}
-					<p class="px-2 py-3 text-center text-xs text-[var(--color-text-tertiary)]">{m['sharedComponents.filter_builder.no_labels']()}</p>
+					<p class="px-2 py-3 text-center text-xs text-[var(--color-text-tertiary)]">
+						{m['sharedComponents.filter_builder.no_labels']()}
+					</p>
 				{/if}
 			{:else if key === 'sub_issues'}
 				{#each SUB_ISSUE_FILTERS as option}
@@ -380,10 +387,12 @@
 		{#if visibleFilters.has('status')}
 			<Popover.Root bind:open={statusOpen} onOpenChange={(open) => handlePopoverClose('status', open)}>
 				<Popover.Trigger>
-					<button class={chipClass(!!filters.status)}>
-						<CircleDashed size={12} />
-						{getStatusChipLabel()}
-					</button>
+					{#snippet child({ props })}
+						<button {...props} class={chipClass(!!filters.status)}>
+							<CircleDashed size={12} />
+							{getStatusChipLabel()}
+						</button>
+					{/snippet}
 				</Popover.Trigger>
 				<Popover.Content class="w-44 p-1" align="start">
 					{#each teamStatusesState.statusOrder as ts}
@@ -411,10 +420,12 @@
 		{#if visibleFilters.has('priority')}
 			<Popover.Root bind:open={priorityOpen} onOpenChange={(open) => handlePopoverClose('priority', open)}>
 				<Popover.Trigger>
-					<button class={chipClass(!!filters.priority)}>
-						<Signal size={12} />
-						{getPriorityChipLabel()}
-					</button>
+					{#snippet child({ props })}
+						<button {...props} class={chipClass(!!filters.priority)}>
+							<Signal size={12} />
+							{getPriorityChipLabel()}
+						</button>
+					{/snippet}
 				</Popover.Trigger>
 				<Popover.Content class="w-44 p-1" align="start">
 					{#each Object.entries(getPriorityLabels()) as [value, label]}
@@ -442,10 +453,12 @@
 		{#if visibleFilters.has('assignee')}
 			<Popover.Root bind:open={assigneeOpen} onOpenChange={(open) => handlePopoverClose('assignee', open)}>
 				<Popover.Trigger>
-					<button class={chipClass(!!filters.assignee)}>
-						<User size={12} />
-						{getAssigneeChipLabel()}
-					</button>
+					{#snippet child({ props })}
+						<button {...props} class={chipClass(!!filters.assignee)}>
+							<User size={12} />
+							{getAssigneeChipLabel()}
+						</button>
+					{/snippet}
 				</Popover.Trigger>
 				<Popover.Content class="w-48 p-1" align="start">
 					<button
@@ -455,7 +468,7 @@
 							? 'bg-[var(--color-bg-hover)]'
 							: ''}"
 					>
-					{m['sharedComponents.filter_builder.unassigned']()}
+						{m['sharedComponents.filter_builder.unassigned']()}
 					</button>
 					{#each members as member}
 						<button
@@ -484,10 +497,12 @@
 		{#if visibleFilters.has('project')}
 			<Popover.Root bind:open={projectOpen} onOpenChange={(open) => handlePopoverClose('project', open)}>
 				<Popover.Trigger>
-					<button class={chipClass(!!filters.project)}>
-						<FolderKanban size={12} />
-						{getProjectChipLabel()}
-					</button>
+					{#snippet child({ props })}
+						<button {...props} class={chipClass(!!filters.project)}>
+							<FolderKanban size={12} />
+							{getProjectChipLabel()}
+						</button>
+					{/snippet}
 				</Popover.Trigger>
 				<Popover.Content class="w-48 p-1" align="start">
 					<button
@@ -526,10 +541,12 @@
 		{#if visibleFilters.has('label')}
 			<Popover.Root bind:open={labelOpen} onOpenChange={(open) => handlePopoverClose('label', open)}>
 				<Popover.Trigger>
-					<button class={chipClass(!!filters.label)}>
-						<Tag size={12} />
-						{getLabelChipLabel()}
-					</button>
+					{#snippet child({ props })}
+						<button {...props} class={chipClass(!!filters.label)}>
+							<Tag size={12} />
+							{getLabelChipLabel()}
+						</button>
+					{/snippet}
 				</Popover.Trigger>
 				<Popover.Content class="w-48 p-1" align="start">
 					{#each labels as label}
@@ -545,7 +562,9 @@
 						</button>
 					{/each}
 					{#if labels.length === 0}
-						<p class="px-2 py-3 text-center text-xs text-[var(--color-text-tertiary)]">{m['sharedComponents.filter_builder.no_labels']()}</p>
+						<p class="px-2 py-3 text-center text-xs text-[var(--color-text-tertiary)]">
+							{m['sharedComponents.filter_builder.no_labels']()}
+						</p>
 					{/if}
 					<Separator class="my-1" />
 					<button
@@ -562,10 +581,12 @@
 		{#if visibleFilters.has('sub_issues')}
 			<Popover.Root bind:open={subIssuesOpen} onOpenChange={(open) => handlePopoverClose('sub_issues', open)}>
 				<Popover.Trigger>
-					<button class={chipClass(!!filters.sub_issues)}>
-						<CornerDownRight size={12} />
-						{getSubIssuesChipLabel()}
-					</button>
+					{#snippet child({ props })}
+						<button {...props} class={chipClass(!!filters.sub_issues)}>
+							<CornerDownRight size={12} />
+							{getSubIssuesChipLabel()}
+						</button>
+					{/snippet}
 				</Popover.Trigger>
 				<Popover.Content class="w-52 p-1" align="start">
 					{#each SUB_ISSUE_FILTERS as option}
@@ -594,7 +615,11 @@
 
 		{#each Array.from(visibleFilters).filter((key) => !FILTER_OPTIONS.some((option) => option.key === key)) as key}
 			{#if filters[key]}
-				<button class={chipClass(true)} onclick={() => removeFilter(key)} title="{m['sharedComponents.filter_builder.remove_filter']()}">
+				<button
+					class={chipClass(true)}
+					onclick={() => removeFilter(key)}
+					title={m['sharedComponents.filter_builder.remove_filter']()}
+				>
 					{getChipLabel(key)}
 					<X size={12} />
 				</button>
@@ -605,12 +630,15 @@
 		{#if availableFilters.length > 0}
 			<Popover.Root bind:open={addFilterOpen}>
 				<Popover.Trigger>
-					<button
-						class="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-secondary)]"
-					>
-						<Plus size={14} />
-						{m['sharedComponents.filter_builder.filter']()}
-					</button>
+					{#snippet child({ props })}
+						<button
+							{...props}
+							class="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-secondary)]"
+						>
+							<Plus size={14} />
+							{m['sharedComponents.filter_builder.filter']()}
+						</button>
+					{/snippet}
 				</Popover.Trigger>
 				<Popover.Content class="w-44 p-1" align="start">
 					{#each availableFilters as option}

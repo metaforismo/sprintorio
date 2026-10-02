@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { mergeProps } from 'svelte-toolbelt';
 	import type { Cycle } from '$lib/types/cycle';
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Popover from '$lib/components/ui/popover';
@@ -54,7 +55,11 @@
 	);
 
 	const badgeLabel = $derived(
-		cycle.status === 'active' ? m['cycles.status.current']() : cycle.status === 'completed' ? m['cycles.status.completed']() : m['cycles.status.upcoming']()
+		cycle.status === 'active'
+			? m['cycles.status.current']()
+			: cycle.status === 'completed'
+				? m['cycles.status.completed']()
+				: m['cycles.status.upcoming']()
 	);
 
 	const successPct = $derived(
@@ -99,18 +104,44 @@
 						stroke-linecap="round"
 					/>
 				</svg>
-				<span><span class="font-semibold text-[var(--color-text-secondary)]">{ringPct}%</span>{m['cycles.timeline.complete']()}</span>
+				<span
+					><span class="font-semibold text-[var(--color-text-secondary)]">{ringPct}%</span>{m[
+						'cycles.timeline.complete'
+					]()}</span
+				>
 			</div>
-			<span><span class="font-semibold text-[var(--color-text-secondary)]">{cycle.progress.total}</span>{m['cycles.timeline.scope']()}</span>
-		{:else if cycle.status === 'completed' && cycle.progress}
-			<span><span class="font-semibold text-[var(--color-text-secondary)]">{successPct}%</span>{m['cycles.timeline.success']()}</span>
 			<span
-				><span class="font-semibold text-[var(--color-text-secondary)]">{cycle.progress.completed}</span>{m['cycles.timeline.completed']()}</span
+				><span class="font-semibold text-[var(--color-text-secondary)]">{cycle.progress.total}</span>{m[
+					'cycles.timeline.scope'
+				]()}</span
 			>
-			<span><span class="font-semibold text-[var(--color-text-secondary)]">{cycle.progress.total}</span>{m['cycles.timeline.scope']()}</span>
+		{:else if cycle.status === 'completed' && cycle.progress}
+			<span
+				><span class="font-semibold text-[var(--color-text-secondary)]">{successPct}%</span>{m[
+					'cycles.timeline.success'
+				]()}</span
+			>
+			<span
+				><span class="font-semibold text-[var(--color-text-secondary)]">{cycle.progress.completed}</span>{m[
+					'cycles.timeline.completed'
+				]()}</span
+			>
+			<span
+				><span class="font-semibold text-[var(--color-text-secondary)]">{cycle.progress.total}</span>{m[
+					'cycles.timeline.scope'
+				]()}</span
+			>
 		{:else if cycle.progress}
-			<span><span class="font-semibold text-[var(--color-text-secondary)]">{successPct}%</span>{m['cycles.timeline.of_capacity']()}</span>
-			<span><span class="font-semibold text-[var(--color-text-secondary)]">{cycle.progress.total}</span>{m['cycles.timeline.scope']()}</span>
+			<span
+				><span class="font-semibold text-[var(--color-text-secondary)]">{successPct}%</span>{m[
+					'cycles.timeline.of_capacity'
+				]()}</span
+			>
+			<span
+				><span class="font-semibold text-[var(--color-text-secondary)]">{cycle.progress.total}</span>{m[
+					'cycles.timeline.scope'
+				]()}</span
+			>
 		{:else}
 			<span><span class="font-semibold text-[var(--color-text-secondary)]">0</span>{m['cycles.timeline.scope']()}</span>
 		{/if}
@@ -120,18 +151,22 @@
 		<!-- 3-dot menu: visible on hover or when open -->
 		<Popover.Root bind:open={menuOpen}>
 			<Popover.Trigger>
-				<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-				<button
-					onclick={(e) => {
-						e.stopPropagation();
-						e.preventDefault();
-					}}
-					class="rounded p-0.5 text-[var(--color-text-tertiary)] opacity-100 transition-opacity hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-secondary)] sm:opacity-0 sm:group-hover:opacity-100 {menuOpen
-						? '!opacity-100'
-						: ''}"
-				>
-					<MoreHorizontal size={14} />
-				</button>
+				{#snippet child({ props })}
+					<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+					<button
+						{...mergeProps(props, {
+							onclick: (e: MouseEvent) => {
+								e.stopPropagation();
+								e.preventDefault();
+							}
+						})}
+						class="rounded p-0.5 text-[var(--color-text-tertiary)] opacity-100 transition-opacity hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-secondary)] sm:opacity-0 sm:group-hover:opacity-100 {menuOpen
+							? '!opacity-100'
+							: ''}"
+					>
+						<MoreHorizontal size={14} />
+					</button>
+				{/snippet}
 			</Popover.Trigger>
 			<Popover.Content class="w-48 p-1" align="end" side="bottom">
 				{#if onedit}

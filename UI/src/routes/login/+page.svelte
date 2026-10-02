@@ -5,6 +5,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Password } from '$lib/components/ui/password';
 	import { authState } from '$lib/features/auth/auth.state.svelte';
+	import { preferredWorkspace, savedWorkspace } from '$lib/utils/workspace-navigation';
 	import { listWorkspaces } from '$lib/api/workspaces';
 	import { demoMode, demoUsers, type DemoUser } from '$lib/demo';
 	import { appToast } from '$lib/features/toast/toast';
@@ -22,6 +23,7 @@
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
+		if (loading) return;
 		loading = true;
 
 		try {
@@ -34,8 +36,9 @@
 			authState.setUser(user);
 
 			const workspaces = await listWorkspaces();
-			if (workspaces.length > 0) {
-				goto(`/${workspaces[0].slug}/inbox`);
+			const workspace = preferredWorkspace(workspaces, savedWorkspace());
+			if (workspace) {
+				goto(`/${workspace.slug}/inbox`);
 			} else {
 				goto('/workspace-setup');
 			}
@@ -64,22 +67,37 @@
 			</p>
 		</div>
 
-		<form onsubmit={handleSubmit} class="space-y-4">
+		<form onsubmit={handleSubmit} aria-busy={loading} class="space-y-4">
 			{#if mode === 'register'}
 				<div>
 					<label for="name" class="block text-sm text-[var(--color-text-secondary)]">{m['login.name']()}</label>
-					<Input id="name" type="text" bind:value={name} required class={authInputClass} />
+					<Input
+						id="name"
+						type="text"
+						autocomplete="name"
+						maxlength={100}
+						bind:value={name}
+						required
+						class={authInputClass}
+					/>
 				</div>
 			{/if}
 
 			<div>
 				<label for="email" class="block text-sm text-[var(--color-text-secondary)]">{m['login.email']()}</label>
-				<Input id="email" type="email" bind:value={email} required class={authInputClass} />
+				<Input id="email" type="email" autocomplete="email" bind:value={email} required class={authInputClass} />
 			</div>
 
 			<div>
 				<label for="password" class="block text-sm text-[var(--color-text-secondary)]">{m['login.password']()}</label>
-				<Password id="password" bind:value={password} required minlength={8} class={authInputClass} />
+				<Password
+					autocomplete={mode === 'register' ? 'new-password' : 'current-password'}
+					id="password"
+					bind:value={password}
+					required
+					minlength={8}
+					class={authInputClass}
+				/>
 			</div>
 
 			<button
@@ -105,7 +123,9 @@
 	</div>
 
 	{#if demoMode && mode === 'login'}
-		<div class="fixed right-4 bottom-4 z-50 flex w-[calc(100vw-2rem)] max-w-sm flex-col items-end gap-3 sm:right-6 sm:bottom-6">
+		<div
+			class="fixed right-4 bottom-4 z-50 flex w-[calc(100vw-2rem)] max-w-sm flex-col items-end gap-3 sm:right-6 sm:bottom-6"
+		>
 			{#if demoDrawerOpen}
 				<section
 					aria-label={m['login.demo.aria_details']()}

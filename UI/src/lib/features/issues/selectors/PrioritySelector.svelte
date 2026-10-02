@@ -4,6 +4,7 @@
 	import IssuePriorityIcon from '$lib/features/issues/IssuePriorityIcon.svelte';
 	import { getPriorityLabel, type IssuePriority } from '$lib/types/issue';
 	import type { Snippet } from 'svelte';
+	import type { HTMLButtonAttributes } from 'svelte/elements';
 
 	let {
 		open = $bindable(false),
@@ -12,12 +13,12 @@
 		trigger,
 		width = 'w-40',
 		align = 'start' as 'start' | 'center' | 'end',
-		shortcutKey,
+		shortcutKey
 	}: {
 		open?: boolean;
 		value: IssuePriority;
 		onchange: (priority: IssuePriority) => void;
-		trigger: Snippet;
+		trigger: Snippet<[HTMLButtonAttributes]>;
 		width?: string;
 		align?: 'start' | 'center' | 'end';
 		shortcutKey?: string;
@@ -30,7 +31,10 @@
 	{#each priorityValues as p (p)}
 		<Command.Item
 			value={getPriorityLabel(p)}
-			onSelect={() => { onchange(p); open = false; }}
+			onSelect={() => {
+				onchange(p);
+				open = false;
+			}}
 			data-checked={value === p}
 			class="flex items-center gap-2"
 		>

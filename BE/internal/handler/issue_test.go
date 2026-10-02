@@ -10,11 +10,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/labstack/echo/v4"
 	"github.com/metaforismo/sprintorio/BE/internal/domain"
 	"github.com/metaforismo/sprintorio/BE/internal/dto"
 	"github.com/metaforismo/sprintorio/BE/internal/realtime"
 	"github.com/metaforismo/sprintorio/BE/internal/service"
-	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -170,6 +170,9 @@ func newTestTeamRepo() *testTeamRepo {
 	return &testTeamRepo{teams: make(map[uuid.UUID]*domain.Team)}
 }
 
+func (r *testTeamRepo) CreateWithMemberAndStatuses(ctx context.Context, team *domain.Team, _ *domain.TeamMember, _ []domain.TeamStatus) error {
+	return r.Create(ctx, team)
+}
 func (r *testTeamRepo) Create(_ context.Context, team *domain.Team) error {
 	r.teams[team.ID] = team
 	return nil
@@ -230,6 +233,12 @@ func (r *testHistoryRepo) ListByIssue(_ context.Context, _ uuid.UUID) ([]domain.
 
 type testTeamStatusRepo struct{}
 
+func (r *testTeamStatusRepo) CreateWithProjectVisibility(context.Context, *domain.TeamStatus, []uuid.UUID) error {
+	return nil
+}
+func (r *testTeamStatusRepo) UpdateWithProjectVisibility(context.Context, *domain.TeamStatus, *[]uuid.UUID) error {
+	return nil
+}
 func (r *testTeamStatusRepo) Create(_ context.Context, _ *domain.TeamStatus) error {
 	return nil
 }

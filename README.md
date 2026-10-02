@@ -18,10 +18,14 @@ Open a project and select **Delivery** to manage:
 
 - **Product brief:** product name, objective, success metric, and target release date.
 - **Milestones:** dates and planned, in-progress, or done status.
-- **Manual test cases:** steps, expected results, not-run/passed/failed/blocked status, and evidence. Passed and failed results require evidence.
+- **Manual test cases:** acceptance, regression, and accessibility starters; steps, expected results, recorded outcomes, and evidence. Search or filter larger plans. Passed and failed results require evidence.
 - **Review readiness:** a conservative summary of recorded milestones and tests. An empty test plan is never considered ready. This is a planning aid, not a deployment approval or proof that automated tests passed.
 
 Plans are stored in PostgreSQL, scoped to the workspace, and included in workspace transfers. Owners, admins, and members can edit; guests can read. Versioned saves reject conflicting edits and preserve your draft until you explicitly reload the latest version.
+
+## Start a workspace
+
+Create your workspace, add a team, and write the first issue. The first-use guide opens each next step and can be dismissed. Project and team forms preserve failed drafts and offer retry. Add existing registered accounts from **Settings → Members**; email invitations are not implemented.
 
 ## Other capabilities
 

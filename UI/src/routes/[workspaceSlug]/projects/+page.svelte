@@ -20,17 +20,36 @@
 	let teams = $state<Team[]>([]);
 	let loading = $state(true);
 	let showCreateProject = $state(false);
+	let loadError = $state(false);
+	let loadVersion = 0;
 
 	function statusLabel(status: ProjectStatus): string {
 		return m[`projects.status.${status}`]();
 	}
 
-	onMount(async () => {
+	async function loadProjects() {
+		const s = slug;
+		const request = ++loadVersion;
+		loading = true;
+		loadError = false;
 		try {
-			[projects, teams] = await Promise.all([listProjects(slug), listTeams(slug)]);
+			const [nextProjects, nextTeams] = await Promise.all([listProjects(s), listTeams(s)]);
+			if (request !== loadVersion || s !== slug) return;
+			projects = nextProjects;
+			teams = nextTeams;
+		} catch {
+			if (request === loadVersion) loadError = true;
 		} finally {
-			loading = false;
+			if (request === loadVersion) loading = false;
 		}
+	}
+	$effect(() => {
+		const s = slug;
+		if (!s) return;
+		void loadProjects();
+		return () => {
+			loadVersion++;
+		};
 	});
 
 	async function handleCreate(data: { name: string; description?: string; team_id?: string }) {
@@ -41,28 +60,31 @@
 			appToast.success(m['projects.toast.created']());
 		} catch (err: any) {
 			appToast.apiError(err, m['projects.toast.failed_create']());
+			throw err;
 		}
 	}
 
 	function progressPercentage(project: Project): number {
 		if (!project.progress || project.progress.total === 0) return 0;
-		return Math.round(((project.progress.completed + project.progress.cancelled) / project.progress.total) * 100);
+		return Math.round((project.progress.completed / project.progress.total) * 100);
 	}
 
 	function statusVariant(status: ProjectStatus): 'default' | 'secondary' | 'outline' | 'destructive' {
 		switch (status) {
-			case 'in_progress': return 'default';
-			case 'completed': return 'secondary';
-			case 'cancelled': return 'destructive';
-			default: return 'outline';
+			case 'in_progress':
+				return 'default';
+			case 'completed':
+				return 'secondary';
+			case 'cancelled':
+				return 'destructive';
+			default:
+				return 'outline';
 		}
 	}
 </script>
 
 <div class="h-full">
-	<div
-		class="flex h-[49px] items-center justify-between border-b border-[var(--app-border)] px-6"
-	>
+	<div class="flex h-[49px] items-center justify-between border-b border-[var(--app-border)] px-6">
 		<div class="flex items-center gap-2">
 			<SidebarToggle />
 			<h1 class="text-sm font-medium text-[var(--color-text-primary)]">{m['projects.title']()}</h1>
@@ -71,12 +93,24 @@
 			onclick={() => (showCreateProject = true)}
 			class="rounded-md p-1 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
 			title={m['projects.new_project']()}
+			aria-label={m['projects.new_project']()}
 		>
 			<Plus size={16} />
 		</button>
 	</div>
 
-	{#if !loading && projects.length === 0}
+	{#if loading}
+		<p role="status" class="p-8 text-center text-sm text-[var(--color-text-tertiary)]">{m['common.loading']()}</p>
+	{:else if loadError}
+		<div role="alert" class="p-8 text-center">
+			<p class="mb-3 text-sm">
+				{getLocale() === 'it' ? 'Impossibile caricare i progetti.' : 'Could not load projects.'}
+			</p>
+			<button class="rounded-md border border-[var(--app-border)] px-4 py-2 text-sm" onclick={loadProjects}
+				>{getLocale() === 'it' ? 'Riprova' : 'Retry'}</button
+			>
+		</div>
+	{:else if projects.length === 0}
 		<EmptyState
 			title={m['projects.no_projects']()}
 			description={m['projects.no_projects_desc']()}
@@ -87,16 +121,16 @@
 			{#each projects as project}
 				<a
 					href="/{slug}/projects/{project.id}"
-					class="flex items-center gap-4 px-6 py-3 hover:bg-[var(--color-bg-hover)]"
+					class="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6 hover:bg-[var(--color-bg-hover)]"
 				>
 					<div class="flex-1 min-w-0">
-						<div class="flex items-center gap-2">
-							<span class="text-sm font-medium text-[var(--color-text-primary)]">{project.name}</span>
+						<div class="flex flex-wrap items-center gap-2">
+							<span class="text-sm font-medium text-[var(--color-text-primary)] break-words">{project.name}</span>
 							<Badge variant={statusVariant(project.status)} class="text-[10px]">
 								{statusLabel(project.status)}
 							</Badge>
 							{#if project.team_id}
-								{@const team = teams.find(t => t.id === project.team_id)}
+								{@const team = teams.find((t) => t.id === project.team_id)}
 								{#if team}
 									<span class="text-[10px] text-[var(--color-text-tertiary)]">{team.name}</span>
 								{/if}
@@ -111,7 +145,9 @@
 							<div class="relative h-1.5 w-24 overflow-hidden rounded-full bg-[var(--color-bg-tertiary)]">
 								<div
 									class="absolute left-0 top-0 h-full rounded-full bg-[var(--color-success)]"
-									style="width: {project.progress.total > 0 ? (project.progress.completed / project.progress.total) * 100 : 0}%"
+									style="width: {project.progress.total > 0
+										? (project.progress.completed / project.progress.total) * 100
+										: 0}%"
 								></div>
 							</div>
 							<span class="text-xs tabular-nums text-[var(--color-text-tertiary)]">
@@ -125,8 +161,4 @@
 	{/if}
 </div>
 
-<CreateProjectDialog
-	bind:open={showCreateProject}
-	{teams}
-	onsubmit={handleCreate}
-/>
+<CreateProjectDialog bind:open={showCreateProject} {teams} onsubmit={handleCreate} />

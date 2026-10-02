@@ -3,6 +3,7 @@
 	import * as Command from '$lib/components/ui/command/index.js';
 	import type { Team } from '$lib/types/team';
 	import type { Snippet } from 'svelte';
+	import type { HTMLButtonAttributes } from 'svelte/elements';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale, setLocale } from '$lib/paraglide/runtime.js';
 
@@ -14,29 +15,41 @@
 		trigger,
 		width = 'w-48',
 		align = 'start' as 'start' | 'center' | 'end',
-		shortcutKey,
+		shortcutKey
 	}: {
 		open?: boolean;
 		teams: Team[];
 		value: string | undefined;
 		onchange: (teamId: string) => void;
-		trigger: Snippet;
+		trigger: Snippet<[HTMLButtonAttributes]>;
 		width?: string;
 		align?: 'start' | 'center' | 'end';
 		shortcutKey?: string;
 	} = $props();
 </script>
 
-<ComboboxPopover bind:open placeholder={m['sharedComponents.selectors.search_teams']()} {width} {align} {shortcutKey} {trigger}>
+<ComboboxPopover
+	bind:open
+	placeholder={m['sharedComponents.selectors.search_teams']()}
+	{width}
+	{align}
+	{shortcutKey}
+	{trigger}
+>
 	{#each teams as team (team.id)}
 		<Command.Item
 			value={team.name}
 			keywords={[team.key]}
-			onSelect={() => { onchange(team.id); open = false; }}
+			onSelect={() => {
+				onchange(team.id);
+				open = false;
+			}}
 			data-checked={value === team.id}
 			class="flex items-center gap-2"
 		>
-			<span class="flex h-5 w-5 items-center justify-center rounded bg-[var(--color-bg-tertiary)] text-[10px] font-medium shrink-0">
+			<span
+				class="flex h-5 w-5 items-center justify-center rounded bg-[var(--color-bg-tertiary)] text-[10px] font-medium shrink-0"
+			>
 				{team.key.charAt(0)}
 			</span>
 			{team.name}

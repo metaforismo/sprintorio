@@ -5,6 +5,7 @@
 	import { createLabel } from '$lib/api/labels';
 	import type { Label } from '$lib/types/label';
 	import type { Snippet } from 'svelte';
+	import type { HTMLButtonAttributes } from 'svelte/elements';
 	import { Plus } from 'lucide-svelte';
 	import { appToast } from '$lib/features/toast/toast';
 	import { m } from '$lib/paraglide/messages.js';
@@ -20,13 +21,13 @@
 		align = 'start' as 'start' | 'center' | 'end',
 		shortcutKey,
 		slug,
-		oncreated,
+		oncreated
 	}: {
 		open?: boolean;
 		labels: Label[];
 		value: string[];
 		onchange: (labelId: string) => void;
-		trigger: Snippet;
+		trigger: Snippet<[HTMLButtonAttributes]>;
 		width?: string;
 		align?: 'start' | 'center' | 'end';
 		shortcutKey?: string;
@@ -38,10 +39,21 @@
 	let createdLabels = $state<Label[]>([]);
 	let visibleLabels = $derived([
 		...createdLabels.filter((createdLabel) => !labels.some((label) => label.id === createdLabel.id)),
-		...labels,
+		...labels
 	]);
 
-	const presetColors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899', '#6b7280'];
+	const presetColors = [
+		'#ef4444',
+		'#f97316',
+		'#eab308',
+		'#22c55e',
+		'#06b6d4',
+		'#3b82f6',
+		'#6366f1',
+		'#8b5cf6',
+		'#ec4899',
+		'#6b7280'
+	];
 
 	function randomPresetColor() {
 		return presetColors[Math.floor(Math.random() * presetColors.length)];
@@ -64,31 +76,34 @@
 	}
 </script>
 
-<ComboboxPopover bind:open placeholder={m['sharedComponents.selectors.search_labels']()} emptyMessage={m['sharedComponents.selectors.no_labels']()} {width} {align} {shortcutKey} {trigger}>
+<ComboboxPopover
+	bind:open
+	placeholder={m['sharedComponents.selectors.search_labels']()}
+	emptyMessage={m['sharedComponents.selectors.no_labels']()}
+	{width}
+	{align}
+	{shortcutKey}
+	{trigger}
+>
 	{#snippet children(searchValue: string)}
 		{@const labelName = searchValue.trim()}
-		{@const canCreate = slug && labelName && !visibleLabels.some((label) => label.name.toLowerCase() === labelName.toLowerCase())}
+		{@const canCreate =
+			slug && labelName && !visibleLabels.some((label) => label.name.toLowerCase() === labelName.toLowerCase())}
 		{#if canCreate}
-			<Command.Item
-				value={labelName}
-				onSelect={() => handleCreate(labelName)}
-				class="flex items-center gap-2"
-			>
+			<Command.Item value={labelName} onSelect={() => handleCreate(labelName)} class="flex items-center gap-2">
 				<Plus size={14} />
-				<span class="truncate">{creating ? m['common.creating']() : m['sharedComponents.selectors.create_label']({ name: labelName })}</span>
+				<span class="truncate"
+					>{creating ? m['common.creating']() : m['sharedComponents.selectors.create_label']({ name: labelName })}</span
+				>
 			</Command.Item>
 		{/if}
 		{#each visibleLabels as label (label.id)}
-		{@const isSelected = value.includes(label.id)}
-		<Command.Item
-			value={label.name}
-			onSelect={() => onchange(label.id)}
-			class="flex items-center gap-2"
-		>
-			<Checkbox checked={isSelected} />
-			<div class="h-2.5 w-2.5 rounded-full shrink-0" style="background-color: {label.color}"></div>
-			<span class="truncate">{label.name}</span>
-		</Command.Item>
+			{@const isSelected = value.includes(label.id)}
+			<Command.Item value={label.name} onSelect={() => onchange(label.id)} class="flex items-center gap-2">
+				<Checkbox checked={isSelected} />
+				<div class="h-2.5 w-2.5 rounded-full shrink-0" style="background-color: {label.color}"></div>
+				<span class="truncate">{label.name}</span>
+			</Command.Item>
 		{/each}
 	{/snippet}
 </ComboboxPopover>
