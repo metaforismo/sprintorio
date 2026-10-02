@@ -81,10 +81,11 @@ test('first issue continues after team creation and preserves both failed drafts
 	await priorityTrigger.focus();
 	await page.keyboard.press('Enter');
 	await expect(page.getByRole('option', { name: 'High', exact: true })).toBeVisible();
-	await page.keyboard.press('Home');
-	await page.keyboard.press('ArrowDown');
-	await page.keyboard.press('ArrowDown');
-	await page.keyboard.press('Enter');
+	const priorityMenu = page.getByRole('application');
+	await priorityMenu.press('Home');
+	await priorityMenu.press('ArrowDown');
+	await priorityMenu.press('ArrowDown');
+	await priorityMenu.press('Enter');
 	await expect(issueDialog.getByRole('button', { name: 'High', exact: true })).toBeFocused();
 
 	await issueDialog.getByPlaceholder('Issue title').fill('Ship the first version');

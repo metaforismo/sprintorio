@@ -8,7 +8,6 @@
 	import type { Cycle } from '$lib/types/cycle';
 	import type { DateValue } from '@internationalized/date';
 	import { m } from '$lib/paraglide/messages.js';
-	import { getLocale, setLocale } from '$lib/paraglide/runtime.js';
 
 	let {
 		open = $bindable(false),
@@ -108,8 +107,12 @@
 					</div>
 
 					<div class="space-y-1.5">
-						<Label class="text-xs text-[var(--color-text-secondary)]">{m['cycles.field.name']()}</Label>
+						<Label for="edit-cycle-name" class="text-xs text-[var(--color-text-secondary)]"
+							>{m['cycles.field.name']()}</Label
+						>
 						<Input
+							id="edit-cycle-name"
+							maxlength={100}
 							bind:value={name}
 							placeholder={m['cycles.create.name_placeholder']()}
 							required
@@ -118,11 +121,12 @@
 					</div>
 
 					<div class="space-y-1.5">
-						<Label class="text-xs text-[var(--color-text-secondary)]"
+						<Label for="edit-cycle-description" class="text-xs text-[var(--color-text-secondary)]"
 							>{m['cycles.field.description']()}
 							<span class="text-[var(--color-text-tertiary)]">{m['cycles.field.optional']()}</span></Label
 						>
 						<Input
+							id="edit-cycle-description"
 							bind:value={description}
 							placeholder={m['cycles.edit.description_placeholder']()}
 							class="bg-[var(--color-bg)] border-[var(--app-border)] text-[var(--color-text-primary)]"
@@ -130,11 +134,12 @@
 					</div>
 
 					<div class="space-y-1.5">
-						<Label class="text-xs text-[var(--color-text-secondary)]"
+						<Label for="edit-cycle-goals" class="text-xs text-[var(--color-text-secondary)]"
 							>{m['cycles.goals']()}
 							<span class="text-[var(--color-text-tertiary)]">{m['cycles.field.optional']()}</span></Label
 						>
 						<Textarea
+							id="edit-cycle-goals"
 							bind:value={goals}
 							placeholder={m['cycles.create.goals_placeholder']()}
 							rows={2}
@@ -144,11 +149,12 @@
 
 					{#if cycle && (cycle.status === 'active' || cycle.status === 'completed')}
 						<div class="space-y-1.5">
-							<Label class="text-xs text-[var(--color-text-secondary)]"
+							<Label for="edit-cycle-retrospective" class="text-xs text-[var(--color-text-secondary)]"
 								>{m['cycles.retrospective']()}
 								<span class="text-[var(--color-text-tertiary)]">{m['cycles.field.optional']()}</span></Label
 							>
 							<Textarea
+								id="edit-cycle-retrospective"
 								bind:value={retrospective}
 								placeholder={m['cycles.edit.retrospective_placeholder']()}
 								rows={3}

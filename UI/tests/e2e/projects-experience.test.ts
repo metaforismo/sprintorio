@@ -112,7 +112,11 @@ test('project list error has retry; timeline loads only the project team and del
 	await page.goto('/test/projects');
 	await expect(page.getByRole('alert').filter({ hasText: 'Could not load projects' })).toBeVisible();
 	state.allowList();
-	await page.getByRole('button', { name: 'Retry', exact: true }).click();
+	await page
+		.getByRole('alert')
+		.filter({ hasText: 'Could not load projects' })
+		.getByRole('button', { name: 'Retry', exact: true })
+		.click();
 	await page.getByRole('link', { name: /Portal launch/ }).click();
 	await expect(page.getByRole('button', { name: 'Issue list' })).toBeVisible();
 	expect(state.cycles).toEqual([]);
@@ -131,4 +135,55 @@ test('disabled Dev Machines do not expose project development settings', async (
 	await page.goto('/test/projects/p1');
 	await expect(page.getByRole('button', { name: 'Issue list', exact: true })).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Development settings', exact: true })).toHaveCount(0);
+});
+
+test('cycle metadata edits and activation preserve issue scope when PATCH omits progress', async ({ page }) => {
+	await setup(page);
+	let metadata = {
+		id: 'c1',
+		team_id: 't1',
+		number: 1,
+		name: 'Customer launch',
+		description: null,
+		goals: null,
+		retrospective: null,
+		status: 'upcoming',
+		start_date: '2026-10-10',
+		end_date: '2026-10-24',
+		created_at: '2026-10-03T00:00:00Z',
+		updated_at: '2026-10-03T00:00:00Z'
+	};
+	const changes: Record<string, unknown>[] = [];
+	await page.route('**/api/workspaces/test/teams/t1/cycles**', async (route) => {
+		const path = new URL(route.request().url()).pathname;
+		if (path.endsWith('/cycles/c1') && route.request().method() === 'PATCH') {
+			const change = route.request().postDataJSON();
+			changes.push(change);
+			metadata = { ...metadata, ...change };
+			// The metadata PATCH endpoint returns the cycle without aggregated issue progress.
+			return route.fulfill({ json: metadata });
+		}
+		if (path.endsWith('/cycles'))
+			return route.fulfill({ json: [{ ...metadata, progress: { total: 1, completed: 0, cancelled: 0 } }] });
+		return route.fulfill({ json: [] });
+	});
+	await page.goto('/test/teams/t1/cycles');
+	const initialRow = page.locator('[role="button"]').filter({ hasText: 'Customer launch' });
+	await expect(initialRow.getByText('1 scope', { exact: true })).toBeVisible();
+	await initialRow.hover();
+	await initialRow.locator('button').first().click();
+	await page.getByRole('button', { name: 'Edit cycle', exact: true }).click();
+	const dialog = page.getByRole('dialog');
+	await dialog.getByRole('textbox').first().fill('Customer release');
+	await dialog.getByRole('button', { name: 'Save changes', exact: true }).click();
+	await expect(dialog).not.toBeVisible();
+	const editedRow = page.locator('[role="button"]').filter({ hasText: 'Customer release' });
+	await expect(editedRow.getByText('1 scope', { exact: true })).toBeVisible();
+	await editedRow.hover();
+	await editedRow.locator('button').first().click();
+	await page.getByRole('button', { name: 'Start cycle', exact: true }).click();
+	await expect.poll(() => changes.length).toBe(2);
+	expect(changes[0]).toMatchObject({ name: 'Customer release' });
+	expect(changes[1]).toEqual({ status: 'active' });
+	await expect(editedRow.getByText('1 scope', { exact: true })).toBeVisible();
 });

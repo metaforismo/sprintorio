@@ -174,9 +174,9 @@ test('manual test templates stay unrun and saved test lists can be searched and 
 	if ((await accessibilitySummary.locator('..').getAttribute('open')) === null) await accessibilitySummary.click();
 	await expect(page.getByLabel('Test case 3', { exact: true })).toHaveValue('Accessibility check');
 
-	await page.getByLabel('Filter by result', { exact: true }).selectOption('passed');
+	await page.getByRole('combobox', { name: 'Filter by result', exact: true }).selectOption('passed');
 	await expect(page.getByText('No matching tests.', { exact: true })).toBeVisible();
-	await page.getByLabel('Filter by result', { exact: true }).selectOption('all');
+	await page.getByRole('combobox', { name: 'Filter by result', exact: true }).selectOption('all');
 	if ((await accessibilitySummary.locator('..').getAttribute('open')) === null) await accessibilitySummary.click();
 	await page.getByRole('button', { name: 'Remove test case 3', exact: true }).click();
 	await expect(page.getByLabel('Search tests', { exact: true })).toHaveValue('keyboard');

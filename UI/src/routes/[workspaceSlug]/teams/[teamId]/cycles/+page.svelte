@@ -177,7 +177,7 @@
 	async function handleActivate(cycleId: string) {
 		try {
 			const updated = await updateCycle(slug, teamId, cycleId, { status: 'active' });
-			cycles = cycles.map((c) => (c.id === cycleId ? updated : c));
+			cycles = cycles.map((c) => (c.id === cycleId ? { ...updated, progress: updated.progress ?? c.progress } : c));
 			appToast.success(m['cycles.toast.activated']());
 		} catch (err: any) {
 			appToast.apiError(err, m['cycles.toast.failed_activate']());
@@ -220,7 +220,7 @@
 				start_date: data.start_date,
 				end_date: data.end_date
 			});
-			cycles = cycles.map((c) => (c.id === updated.id ? updated : c));
+			cycles = cycles.map((c) => (c.id === updated.id ? { ...updated, progress: updated.progress ?? c.progress } : c));
 			appToast.success(m['cycles.toast.updated']());
 		} catch (err: any) {
 			appToast.apiError(err, m['cycles.toast.failed_update']());

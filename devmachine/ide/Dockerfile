@@ -13,6 +13,7 @@ ARG TTYD_ARM64_SHA256=b38acadd89d1d396a0f5649aa52c539edbad07f4bc7348b27b4f4b7219
 ARG NPM_VERSION=12.0.1
 ARG BRACE_EXPANSION_VERSION=5.0.12
 ARG IP_ADDRESS_VERSION=10.3.1
+ARG NPM_TAR_VERSION=7.5.22
 ARG NPM_UNDICI_VERSION=6.28.1
 ARG VSCODE_UNDICI_VERSION=7.29.1
 ARG CLAUDE_CODE_VERSION=2.1.218
@@ -47,14 +48,16 @@ RUN rm -f /usr/bin/pebble \
     && npm install -g --allow-scripts=opencode-ai "opencode-ai@${OPENCODE_VERSION}" \
     && npm install -g "@openai/codex@${CODEX_VERSION}" \
     && npm install --prefix /tmp/npm-patches --ignore-scripts --package-lock=false "brace-expansion@${BRACE_EXPANSION_VERSION}" \
-         "ip-address@${IP_ADDRESS_VERSION}" "undici@${NPM_UNDICI_VERSION}" \
+         "ip-address@${IP_ADDRESS_VERSION}" "undici@${NPM_UNDICI_VERSION}" "tar@${NPM_TAR_VERSION}" \
     && rm -rf /usr/local/lib/node_modules/npm/node_modules/brace-expansion \
          /usr/local/lib/node_modules/npm/node_modules/ip-address \
          /usr/local/lib/node_modules/npm/node_modules/undici \
+         /usr/local/lib/node_modules/npm/node_modules/tar \
     && cp -a /tmp/npm-patches/node_modules/brace-expansion \
-         /tmp/npm-patches/node_modules/ip-address /tmp/npm-patches/node_modules/undici \
+         /tmp/npm-patches/node_modules/ip-address /tmp/npm-patches/node_modules/undici /tmp/npm-patches/node_modules/tar \
          /usr/local/lib/node_modules/npm/node_modules/ \
     && node -e 'const actual=require("/usr/local/lib/node_modules/npm/node_modules/brace-expansion/package.json").version;if(actual!==process.argv[1])throw new Error(`unexpected brace-expansion ${actual}`)' "${BRACE_EXPANSION_VERSION}" \
+    && node -e 'const path="/usr/local/lib/node_modules/npm/node_modules/tar",actual=require(path+"/package.json").version;if(actual!==process.argv[1])throw new Error(`unexpected tar ${actual}`);require(path)' "${NPM_TAR_VERSION}" \
     && npm install --prefix /tmp/code-server-patches --ignore-scripts --package-lock=false \
          "js-yaml@4.3.2" "shell-quote@1.9.0" "tar@7.5.22" \
          "ip-address@${IP_ADDRESS_VERSION}" "undici@${VSCODE_UNDICI_VERSION}" \
