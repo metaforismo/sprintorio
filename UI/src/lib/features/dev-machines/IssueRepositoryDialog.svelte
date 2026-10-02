@@ -7,7 +7,12 @@
 	import ComboboxPopover from '$lib/components/shared/ComboboxPopover.svelte';
 	import { ChevronsUpDown, GitBranch } from 'lucide-svelte';
 	import { getGitHubStatus } from '$lib/api/github';
-	import { deleteDevMachineScopeSetting, getDevMachineScopeSetting, listDevMachineEnvironments, updateDevMachineScopeSetting } from '$lib/api/dev-machines';
+	import {
+		deleteDevMachineScopeSetting,
+		getDevMachineScopeSetting,
+		listDevMachineEnvironments,
+		updateDevMachineScopeSetting
+	} from '$lib/api/dev-machines';
 	import type { GitHubRepo } from '$lib/types/github';
 	import type { DevMachineEnvironment } from '$lib/types/dev-machine';
 	import type { Issue } from '$lib/types/issue';
@@ -36,7 +41,9 @@
 		loading = true;
 		try {
 			const [github, setting, availableEnvironments] = await Promise.all([
-				getGitHubStatus(slug), getDevMachineScopeSetting(slug, 'issue', issue.id), listDevMachineEnvironments(slug)
+				getGitHubStatus(slug),
+				getDevMachineScopeSetting(slug, 'issue', issue.id),
+				listDevMachineEnvironments(slug)
 			]);
 			repositories = github.repos ?? [];
 			environments = (availableEnvironments ?? []).filter((item) => item.status === 'ready');
@@ -56,7 +63,8 @@
 				await deleteDevMachineScopeSetting(slug, 'issue', issue.id);
 			} else {
 				await updateDevMachineScopeSetting(slug, {
-					scope_type: 'issue', scope_id: issue.id,
+					scope_type: 'issue',
+					scope_id: issue.id,
 					github_repo_id: selectedRepository?.id,
 					base_branch: selectedRepository?.default_branch,
 					environment_id: selectedEnvironment?.id
@@ -74,25 +82,85 @@
 
 <Dialog.Root bind:open>
 	<Dialog.Content class="sm:max-w-md">
-		<Dialog.Header><Dialog.Title>{m['machines.issue_defaults_title']()}</Dialog.Title><Dialog.Description>{m['machines.issue_defaults_desc']({ identifier: issue.identifier })}</Dialog.Description></Dialog.Header>
+		<Dialog.Header
+			><Dialog.Title>{m['machines.issue_defaults_title']()}</Dialog.Title><Dialog.Description
+				>{m['machines.issue_defaults_desc']({ identifier: issue.identifier })}</Dialog.Description
+			></Dialog.Header
+		>
 		<div class="space-y-4">
 			<div class="space-y-1.5">
 				<Label>{m['machines.repository']()}</Label>
-				<ComboboxPopover bind:open={repositoryOpen} placeholder={m['machines.search_repositories']()} emptyMessage={m['machines.no_repositories']()} width="w-[min(28rem,calc(100vw-2rem))]">
-					{#snippet trigger()}
-						<Button type="button" variant="outline" class="w-full justify-between gap-2 font-normal" disabled={loading} aria-label={m['machines.repository']()}>
-							<span class="flex min-w-0 items-center gap-2"><GitBranch class="size-3.5 shrink-0 text-[var(--color-text-tertiary)]" /><span class="truncate">{selectedRepository?.full_name ?? m['machines.use_workspace_default']()}</span></span>
+				<ComboboxPopover
+					bind:open={repositoryOpen}
+					placeholder={m['machines.search_repositories']()}
+					emptyMessage={m['machines.no_repositories']()}
+					width="w-[min(28rem,calc(100vw-2rem))]"
+				>
+					{#snippet trigger(props)}
+						<Button
+							{...props}
+							type="button"
+							variant="outline"
+							class="w-full justify-between gap-2 font-normal"
+							disabled={loading}
+							aria-label={m['machines.repository']()}
+						>
+							<span class="flex min-w-0 items-center gap-2"
+								><GitBranch class="size-3.5 shrink-0 text-[var(--color-text-tertiary)]" /><span class="truncate"
+									>{selectedRepository?.full_name ?? m['machines.use_workspace_default']()}</span
+								></span
+							>
 							<ChevronsUpDown class="size-3.5 shrink-0 text-[var(--color-text-tertiary)]" />
 						</Button>
 					{/snippet}
-					<Command.Item value="Use project team or workspace default" data-checked={repositoryId === 'inherit'} onSelect={() => { repositoryId = 'inherit'; repositoryOpen = false; }} class="text-[var(--color-text-tertiary)]">Use project, team, or workspace default</Command.Item>
+					<Command.Item
+						value="Use project team or workspace default"
+						data-checked={repositoryId === 'inherit'}
+						onSelect={() => {
+							repositoryId = 'inherit';
+							repositoryOpen = false;
+						}}
+						class="text-[var(--color-text-tertiary)]">Use project, team, or workspace default</Command.Item
+					>
 					{#each repositories as repository (repository.id)}
-						<Command.Item value={repository.full_name} data-checked={repositoryId === repository.id} onSelect={() => { repositoryId = repository.id; repositoryOpen = false; }} class="flex items-center gap-2"><GitBranch class="size-3.5 text-[var(--color-text-tertiary)]" /><span class="truncate">{repository.full_name}</span></Command.Item>
+						<Command.Item
+							value={repository.full_name}
+							data-checked={repositoryId === repository.id}
+							onSelect={() => {
+								repositoryId = repository.id;
+								repositoryOpen = false;
+							}}
+							class="flex items-center gap-2"
+							><GitBranch class="size-3.5 text-[var(--color-text-tertiary)]" /><span class="truncate"
+								>{repository.full_name}</span
+							></Command.Item
+						>
 					{/each}
 				</ComboboxPopover>
 			</div>
-			<div class="space-y-1.5"><Label>{m['machines.environment']()}</Label><Select.Root type="single" value={environmentId} disabled={loading} onValueChange={(value) => value && (environmentId = value)}><Select.Trigger class="w-full">{selectedEnvironment?.name ?? m['machines.use_workspace_default']()}</Select.Trigger><Select.Content><Select.Item value="inherit" label={m['machines.use_inherited_default']()}>{m['machines.use_inherited_default']()}</Select.Item>{#each environments as environment}<Select.Item value={environment.id} label={environment.name}>{environment.name}</Select.Item>{/each}</Select.Content></Select.Root></div>
+			<div class="space-y-1.5">
+				<Label>{m['machines.environment']()}</Label><Select.Root
+					type="single"
+					value={environmentId}
+					disabled={loading}
+					onValueChange={(value) => value && (environmentId = value)}
+					><Select.Trigger class="w-full"
+						>{selectedEnvironment?.name ?? m['machines.use_workspace_default']()}</Select.Trigger
+					><Select.Content
+						><Select.Item value="inherit" label={m['machines.use_inherited_default']()}
+							>{m['machines.use_inherited_default']()}</Select.Item
+						>{#each environments as environment}<Select.Item value={environment.id} label={environment.name}
+								>{environment.name}</Select.Item
+							>{/each}</Select.Content
+					></Select.Root
+				>
+			</div>
 		</div>
-		<Dialog.Footer><Button variant="outline" onclick={() => (open = false)}>{m['common.cancel']()}</Button><Button onclick={save} disabled={loading || saving}>{saving ? m['common.saving']() : m['machines.save_defaults']()}</Button></Dialog.Footer>
+		<Dialog.Footer
+			><Button variant="outline" onclick={() => (open = false)}>{m['common.cancel']()}</Button><Button
+				onclick={save}
+				disabled={loading || saving}>{saving ? m['common.saving']() : m['machines.save_defaults']()}</Button
+			></Dialog.Footer
+		>
 	</Dialog.Content>
 </Dialog.Root>

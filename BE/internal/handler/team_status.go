@@ -1,15 +1,16 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
+	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
 	"github.com/metaforismo/sprintorio/BE/internal/domain"
 	"github.com/metaforismo/sprintorio/BE/internal/dto"
 	"github.com/metaforismo/sprintorio/BE/internal/service"
 	"github.com/metaforismo/sprintorio/BE/pkg/response"
 	"github.com/metaforismo/sprintorio/BE/pkg/validate"
-	"github.com/google/uuid"
-	"github.com/labstack/echo/v4"
 )
 
 type TeamStatusHandler struct {
@@ -38,7 +39,10 @@ func (h *TeamStatusHandler) List(c echo.Context) error {
 	for i, s := range statuses {
 		statusIDs[i] = s.ID
 	}
-	projectIDsMap, _ := h.statusSvc.ListProjectIDsForStatuses(ctx, statusIDs)
+	projectIDsMap, err := h.statusSvc.ListProjectIDsForStatuses(ctx, statusIDs)
+	if err != nil {
+		return response.InternalError(c)
+	}
 
 	resp := make([]dto.TeamStatusResponse, len(statuses))
 	for i, s := range statuses {
@@ -76,10 +80,14 @@ func (h *TeamStatusHandler) Create(c echo.Context) error {
 	ctx := c.Request().Context()
 	status, err := h.statusSvc.Create(ctx, teamID, req)
 	if err != nil {
-		return response.Error(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+		return teamStatusError(c, err)
 	}
 	resp := toTeamStatusResponse(*status)
-	if pids, _ := h.statusSvc.ListProjectsForStatus(ctx, status.ID); len(pids) > 0 {
+	pids, err := h.statusSvc.ListProjectsForStatus(ctx, status.ID)
+	if err != nil {
+		return response.InternalError(c)
+	}
+	if len(pids) > 0 {
 		pidStrs := make([]string, len(pids))
 		for i, pid := range pids {
 			pidStrs[i] = pid.String()
@@ -104,10 +112,14 @@ func (h *TeamStatusHandler) Update(c echo.Context) error {
 	ctx := c.Request().Context()
 	status, err := h.statusSvc.Update(ctx, id, req)
 	if err != nil {
-		return response.Error(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+		return teamStatusError(c, err)
 	}
 	resp := toTeamStatusResponse(*status)
-	if pids, _ := h.statusSvc.ListProjectsForStatus(ctx, status.ID); len(pids) > 0 {
+	pids, err := h.statusSvc.ListProjectsForStatus(ctx, status.ID)
+	if err != nil {
+		return response.InternalError(c)
+	}
+	if len(pids) > 0 {
 		pidStrs := make([]string, len(pids))
 		for i, pid := range pids {
 			pidStrs[i] = pid.String()
@@ -125,7 +137,7 @@ func (h *TeamStatusHandler) Delete(c echo.Context) error {
 	}
 
 	if err := h.statusSvc.Delete(c.Request().Context(), id); err != nil {
-		return response.Error(c, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+		return teamStatusError(c, err)
 	}
 	return response.Success(c, http.StatusOK, map[string]string{"status": "deleted"})
 }
@@ -143,4 +155,14 @@ func toTeamStatusResponse(s domain.TeamStatus) dto.TeamStatusResponse {
 		CreatedAt: s.CreatedAt,
 		UpdatedAt: s.UpdatedAt,
 	}
+}
+
+func teamStatusError(c echo.Context, err error) error {
+	if errors.Is(err, service.ErrInvalidTeamStatus) {
+		return response.Error(c, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
+	}
+	if errors.Is(err, service.ErrTeamStatusNotFound) {
+		return response.NotFound(c, "Status")
+	}
+	return response.InternalError(c)
 }

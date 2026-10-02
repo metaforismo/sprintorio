@@ -1,6 +1,12 @@
 import { test, expect } from '@playwright/test';
 
 test('redirects to login when not authenticated', async ({ page }) => {
+	await page.route('**://*/api/auth/me', (route) =>
+		route.fulfill({ status: 401, json: { error: { message: 'Unauthorized' } } })
+	);
+	await page.route('**://*/api/auth/refresh', (route) =>
+		route.fulfill({ status: 401, json: { error: { message: 'Unauthorized' } } })
+	);
 	await page.goto('/');
 	await expect(page).toHaveURL(/.*login/);
 });

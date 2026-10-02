@@ -17,12 +17,13 @@ type TokenResponse struct {
 }
 
 type UserResponse struct {
-	ID          string  `json:"id"`
-	Email       string  `json:"email"`
-	Name        string  `json:"name"`
-	DisplayName string  `json:"display_name"`
-	AvatarURL   *string `json:"avatar_url"`
-	IsSysAdmin  bool    `json:"is_sysadmin"`
+	ID                 string  `json:"id"`
+	Email              string  `json:"email"`
+	Name               string  `json:"name"`
+	DisplayName        string  `json:"display_name"`
+	AvatarURL          *string `json:"avatar_url"`
+	IsSysAdmin         bool    `json:"is_sysadmin"`
+	DevMachinesEnabled bool    `json:"dev_machines_enabled"`
 }
 
 type UpdateProfileRequest struct {

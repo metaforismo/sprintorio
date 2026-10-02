@@ -11,13 +11,13 @@ type CreateCycleRequest struct {
 }
 
 type UpdateCycleRequest struct {
-	Name          *string `json:"name" validate:"omitempty,min=1,max=100"`
-	Description   *string `json:"description"`
-	Goals         *string `json:"goals"`
-	Retrospective *string `json:"retrospective"`
-	Status        *string `json:"status" validate:"omitempty,oneof=upcoming active completed"`
-	StartDate     *string `json:"start_date"`
-	EndDate       *string `json:"end_date"`
+	Name          *string        `json:"name" validate:"omitempty,min=1,max=100"`
+	Description   *string        `json:"description"`
+	Goals         *string        `json:"goals"`
+	Retrospective *string        `json:"retrospective"`
+	Status        *string        `json:"status" validate:"omitempty,oneof=upcoming active completed"`
+	StartDate     OptionalString `json:"start_date"`
+	EndDate       OptionalString `json:"end_date"`
 }
 
 type CompleteCycleRequest struct {

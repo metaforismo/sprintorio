@@ -5,6 +5,7 @@ export interface User {
 	display_name: string;
 	avatar_url: string | null;
 	is_sysadmin: boolean;
+	dev_machines_enabled?: boolean;
 }
 
 export interface LoginRequest {

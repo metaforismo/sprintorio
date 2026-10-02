@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -10,13 +11,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
 	"github.com/metaforismo/sprintorio/BE/internal/domain"
 	"github.com/metaforismo/sprintorio/BE/internal/dto"
 	"github.com/metaforismo/sprintorio/BE/internal/middleware"
 	"github.com/metaforismo/sprintorio/BE/internal/repository"
 	"github.com/metaforismo/sprintorio/BE/internal/service"
 	"github.com/metaforismo/sprintorio/BE/pkg/jwt"
-	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -38,7 +39,7 @@ func TestAuthHandler_Register_ValidationError(t *testing.T) {
 	userRepo := &testUserRepo{}
 	refreshRepo := &testRefreshTokenRepo{}
 	authSvc := service.NewAuthService(userRepo, refreshRepo, "test-secret")
-	h := NewAuthHandler(authSvc, false, middleware.NewLoginThrottle(5, 15*time.Minute), nil)
+	h := NewAuthHandler(authSvc, false, middleware.NewLoginThrottle(5, 15*time.Minute), nil, false)
 
 	err := h.Register(c)
 
@@ -59,7 +60,7 @@ func TestAuthHandler_Register_Success(t *testing.T) {
 	userRepo := &testUserRepo{}
 	refreshRepo := &testRefreshTokenRepo{}
 	authSvc := service.NewAuthService(userRepo, refreshRepo, "test-secret")
-	h := NewAuthHandler(authSvc, false, middleware.NewLoginThrottle(5, 15*time.Minute), nil)
+	h := NewAuthHandler(authSvc, false, middleware.NewLoginThrottle(5, 15*time.Minute), nil, false)
 
 	err := h.Register(c)
 
@@ -94,7 +95,7 @@ func TestAuthHandler_Register_DuplicateEmail(t *testing.T) {
 	userRepo := &testUserRepo{emailExists: true}
 	refreshRepo := &testRefreshTokenRepo{}
 	authSvc := service.NewAuthService(userRepo, refreshRepo, "test-secret")
-	h := NewAuthHandler(authSvc, false, middleware.NewLoginThrottle(5, 15*time.Minute), nil)
+	h := NewAuthHandler(authSvc, false, middleware.NewLoginThrottle(5, 15*time.Minute), nil, false)
 
 	err := h.Register(c)
 
@@ -115,7 +116,7 @@ func TestAuthHandler_Login_Success(t *testing.T) {
 	userRepo := &testUserRepo{userWithPassword: "Password123!!"}
 	refreshRepo := &testRefreshTokenRepo{}
 	authSvc := service.NewAuthService(userRepo, refreshRepo, "test-secret")
-	h := NewAuthHandler(authSvc, false, middleware.NewLoginThrottle(5, 15*time.Minute), nil)
+	h := NewAuthHandler(authSvc, false, middleware.NewLoginThrottle(5, 15*time.Minute), nil, false)
 
 	err := h.Login(c)
 
@@ -144,7 +145,7 @@ func TestAuthHandler_Login_WrongPassword(t *testing.T) {
 	userRepo := &testUserRepo{userWithPassword: "Password123!!"}
 	refreshRepo := &testRefreshTokenRepo{}
 	authSvc := service.NewAuthService(userRepo, refreshRepo, "test-secret")
-	h := NewAuthHandler(authSvc, false, middleware.NewLoginThrottle(5, 15*time.Minute), nil)
+	h := NewAuthHandler(authSvc, false, middleware.NewLoginThrottle(5, 15*time.Minute), nil, false)
 
 	err := h.Login(c)
 
@@ -168,7 +169,7 @@ func TestAuthHandler_Me_Success(t *testing.T) {
 	userRepo := &testUserRepo{specificUserID: userID}
 	refreshRepo := &testRefreshTokenRepo{}
 	authSvc := service.NewAuthService(userRepo, refreshRepo, "test-secret")
-	h := NewAuthHandler(authSvc, false, middleware.NewLoginThrottle(5, 15*time.Minute), func(id uuid.UUID) bool { return id == userID })
+	h := NewAuthHandler(authSvc, false, middleware.NewLoginThrottle(5, 15*time.Minute), func(id uuid.UUID) bool { return id == userID }, false)
 
 	err := h.Me(c)
 
@@ -188,7 +189,7 @@ func TestAuthHandler_Logout(t *testing.T) {
 	userRepo := &testUserRepo{}
 	refreshRepo := &testRefreshTokenRepo{}
 	authSvc := service.NewAuthService(userRepo, refreshRepo, "test-secret")
-	h := NewAuthHandler(authSvc, false, middleware.NewLoginThrottle(5, 15*time.Minute), nil)
+	h := NewAuthHandler(authSvc, false, middleware.NewLoginThrottle(5, 15*time.Minute), nil, false)
 
 	err := h.Logout(c)
 
@@ -305,4 +306,15 @@ func (r *testRefreshTokenRepo) DeleteByUser(_ context.Context, _ uuid.UUID) erro
 
 func (r *testRefreshTokenRepo) DeleteExpired(_ context.Context) error {
 	return nil
+}
+
+func TestUserResponseIncludesConfiguredDevMachinesCapability(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		h := NewAuthHandler(nil, false, nil, nil, enabled)
+		result := h.userResponse(&domain.User{ID: uuid.New(), Email: "tester@example.test"})
+		assert.Equal(t, enabled, result.DevMachinesEnabled)
+		raw, err := json.Marshal(result)
+		assert.NoError(t, err)
+		assert.Contains(t, string(raw), "\"dev_machines_enabled\":")
+	}
 }

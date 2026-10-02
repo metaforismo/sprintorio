@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/metaforismo/sprintorio/BE/internal/domain"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/metaforismo/sprintorio/BE/internal/domain"
 )
 
 type TeamStatusRepository struct {
@@ -80,4 +80,55 @@ func (r *TeamStatusRepository) NextPosition(ctx context.Context, teamID uuid.UUI
 	var pos int
 	err := r.db.GetContext(ctx, &pos, `SELECT COALESCE(MAX(position), -1) + 1 FROM team_statuses WHERE team_id = $1`, teamID)
 	return pos, err
+}
+
+var ErrStatusProjectScope = errors.New("projects must belong to the team's workspace")
+
+func (r *TeamStatusRepository) CreateWithProjectVisibility(ctx context.Context, status *domain.TeamStatus, projectIDs []uuid.UUID) error {
+	return r.persistWithProjectVisibility(ctx, status, &projectIDs, true)
+}
+func (r *TeamStatusRepository) UpdateWithProjectVisibility(ctx context.Context, status *domain.TeamStatus, projectIDs *[]uuid.UUID) error {
+	return r.persistWithProjectVisibility(ctx, status, projectIDs, false)
+}
+
+// Updating only name/color/position preserves visibility. An explicitly supplied
+// empty list clears it. Both metadata and visibility commit together.
+func (r *TeamStatusRepository) persistWithProjectVisibility(ctx context.Context, status *domain.TeamStatus, projectIDs *[]uuid.UUID, create bool) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if projectIDs != nil && len(*projectIDs) > 0 {
+		query, args, err := sqlx.In(`SELECT COUNT(*) FROM projects p JOIN teams t ON p.workspace_id=t.workspace_id WHERE t.id=? AND p.id IN (?)`, status.TeamID, *projectIDs)
+		if err != nil {
+			return err
+		}
+		var count int
+		if err := tx.GetContext(ctx, &count, tx.Rebind(query), args...); err != nil {
+			return err
+		}
+		if count != len(*projectIDs) {
+			return ErrStatusProjectScope
+		}
+	}
+	if create {
+		err = tx.QueryRowContext(ctx, `INSERT INTO team_statuses(id,team_id,name,slug,category,color,position,is_default) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING created_at,updated_at`, status.ID, status.TeamID, status.Name, status.Slug, status.Category, status.Color, status.Position, status.IsDefault).Scan(&status.CreatedAt, &status.UpdatedAt)
+	} else {
+		err = tx.QueryRowContext(ctx, `UPDATE team_statuses SET name=$1,color=$2,position=$3,updated_at=NOW() WHERE id=$4 AND team_id=$5 RETURNING updated_at`, status.Name, status.Color, status.Position, status.ID, status.TeamID).Scan(&status.UpdatedAt)
+	}
+	if err != nil {
+		return err
+	}
+	if projectIDs != nil {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM project_status_visibility WHERE status_id=$1`, status.ID); err != nil {
+			return err
+		}
+		for _, id := range *projectIDs {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO project_status_visibility(project_id,status_id) VALUES($1,$2)`, id, status.ID); err != nil {
+				return err
+			}
+		}
+	}
+	return tx.Commit()
 }

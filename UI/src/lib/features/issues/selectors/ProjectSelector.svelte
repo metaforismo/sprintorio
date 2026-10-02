@@ -4,6 +4,7 @@
 	import { FolderKanban } from 'lucide-svelte';
 	import type { Project } from '$lib/types/project';
 	import type { Snippet } from 'svelte';
+	import type { HTMLButtonAttributes } from 'svelte/elements';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale, setLocale } from '$lib/paraglide/runtime.js';
 
@@ -16,13 +17,13 @@
 		showNone = true,
 		width = 'w-48',
 		align = 'start' as 'start' | 'center' | 'end',
-		shortcutKey,
+		shortcutKey
 	}: {
 		open?: boolean;
 		projects: Project[];
 		value: string | null | undefined;
 		onchange: (projectId: string | null) => void;
-		trigger: Snippet;
+		trigger: Snippet<[HTMLButtonAttributes]>;
 		showNone?: boolean;
 		width?: string;
 		align?: 'start' | 'center' | 'end';
@@ -30,11 +31,22 @@
 	} = $props();
 </script>
 
-<ComboboxPopover bind:open placeholder={m['sharedComponents.selectors.search_projects']()} emptyMessage={m['sharedComponents.selectors.no_projects']()} {width} {align} {shortcutKey} {trigger}>
+<ComboboxPopover
+	bind:open
+	placeholder={m['sharedComponents.selectors.search_projects']()}
+	emptyMessage={m['sharedComponents.selectors.no_projects']()}
+	{width}
+	{align}
+	{shortcutKey}
+	{trigger}
+>
 	{#if showNone}
 		<Command.Item
 			value={m['sharedComponents.filter_builder.no_project']()}
-			onSelect={() => { onchange(null); open = false; }}
+			onSelect={() => {
+				onchange(null);
+				open = false;
+			}}
 			class="text-[var(--color-text-tertiary)]"
 		>
 			{m['sharedComponents.filter_builder.no_project']()}
@@ -43,7 +55,10 @@
 	{#each projects as project (project.id)}
 		<Command.Item
 			value={project.name}
-			onSelect={() => { onchange(project.id); open = false; }}
+			onSelect={() => {
+				onchange(project.id);
+				open = false;
+			}}
 			data-checked={value === project.id}
 			class="flex items-center gap-2"
 		>

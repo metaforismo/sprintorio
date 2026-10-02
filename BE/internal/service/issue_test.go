@@ -138,6 +138,9 @@ type mockTeamRepo struct {
 	mock.Mock
 }
 
+func (m *mockTeamRepo) CreateWithMemberAndStatuses(ctx context.Context, team *domain.Team, member *domain.TeamMember, statuses []domain.TeamStatus) error {
+	return m.Called(ctx, team, member, statuses).Error(0)
+}
 func (m *mockTeamRepo) Create(ctx context.Context, team *domain.Team) error {
 	args := m.Called(ctx, team)
 	return args.Error(0)
@@ -259,6 +262,12 @@ type mockTeamStatusRepo struct {
 	mock.Mock
 }
 
+func (m *mockTeamStatusRepo) CreateWithProjectVisibility(ctx context.Context, status *domain.TeamStatus, ids []uuid.UUID) error {
+	return m.Called(ctx, status, ids).Error(0)
+}
+func (m *mockTeamStatusRepo) UpdateWithProjectVisibility(ctx context.Context, status *domain.TeamStatus, ids *[]uuid.UUID) error {
+	return m.Called(ctx, status, ids).Error(0)
+}
 func (m *mockTeamStatusRepo) Create(ctx context.Context, status *domain.TeamStatus) error {
 	args := m.Called(ctx, status)
 	return args.Error(0)

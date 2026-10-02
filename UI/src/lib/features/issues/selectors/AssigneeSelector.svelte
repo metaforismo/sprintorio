@@ -4,6 +4,7 @@
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import type { WorkspaceMember } from '$lib/types/workspace';
 	import type { Snippet } from 'svelte';
+	import type { HTMLButtonAttributes } from 'svelte/elements';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale, setLocale } from '$lib/paraglide/runtime.js';
 
@@ -15,20 +16,28 @@
 		trigger,
 		width = 'w-48',
 		align = 'start' as 'start' | 'center' | 'end',
-		shortcutKey,
+		shortcutKey
 	}: {
 		open?: boolean;
 		members: WorkspaceMember[];
 		value: string[];
 		onchange: (memberUserId: string) => void;
-		trigger: Snippet;
+		trigger: Snippet<[HTMLButtonAttributes]>;
 		width?: string;
 		align?: 'start' | 'center' | 'end';
 		shortcutKey?: string;
 	} = $props();
 </script>
 
-<ComboboxPopover bind:open placeholder={m['sharedComponents.selectors.search_members']()} emptyMessage={m['sharedComponents.selectors.no_members']()} {width} {align} {shortcutKey} {trigger}>
+<ComboboxPopover
+	bind:open
+	placeholder={m['sharedComponents.selectors.search_members']()}
+	emptyMessage={m['sharedComponents.selectors.no_members']()}
+	{width}
+	{align}
+	{shortcutKey}
+	{trigger}
+>
 	{#each members as member (member.user_id)}
 		{@const isAssigned = value.includes(member.user_id)}
 		<Command.Item
@@ -38,7 +47,9 @@
 			class="flex items-center gap-2"
 		>
 			<Checkbox checked={isAssigned} />
-			<div class="flex h-4 w-4 items-center justify-center rounded-full bg-[var(--app-accent)] text-[8px] text-[var(--app-accent-foreground)] shrink-0">
+			<div
+				class="flex h-4 w-4 items-center justify-center rounded-full bg-[var(--app-accent)] text-[8px] text-[var(--app-accent-foreground)] shrink-0"
+			>
 				{(member.name || member.email).charAt(0).toUpperCase()}
 			</div>
 			{member.name || member.email}

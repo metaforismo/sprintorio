@@ -229,6 +229,7 @@
 	"cycles.create.description_placeholder": "這個週期的目標是什麼？",
 	"cycles.create.goals_placeholder": "例如：完成認證流程，修復 20 個 bug",
 	"cycles.create.name_placeholder": "例如：第 1 週期",
+	"cycles.create.default_name": "週期 {number}",
 	"cycles.create.title": "建立週期",
 	"cycles.delete_cycle": "刪除週期",
 	"cycles.edit.description": "更新週期詳情。",

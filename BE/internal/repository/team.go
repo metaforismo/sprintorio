@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -71,4 +72,34 @@ func (r *TeamRepository) ListMembers(ctx context.Context, teamID uuid.UUID) ([]d
 func (r *TeamRepository) RemoveMember(ctx context.Context, teamID, userID uuid.UUID) error {
 	_, err := r.db.ExecContext(ctx, `DELETE FROM team_members WHERE team_id = $1 AND user_id = $2`, teamID, userID)
 	return err
+}
+
+var ErrTeamKeyTaken = errors.New("team key is already used in this workspace")
+
+func (r *TeamRepository) CreateWithMemberAndStatuses(ctx context.Context, team *domain.Team, member *domain.TeamMember, statuses []domain.TeamStatus) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	err = tx.QueryRowContext(ctx, `INSERT INTO teams(id,workspace_id,name,key,description,color,icon) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING created_at,updated_at`, team.ID, team.WorkspaceID, team.Name, team.Key, team.Description, team.Color, team.Icon).Scan(&team.CreatedAt, &team.UpdatedAt)
+	if err != nil {
+		var pg *pgconn.PgError
+		if errors.As(err, &pg) && pg.Code == "23505" && pg.ConstraintName == "teams_workspace_id_key_key" {
+			return ErrTeamKeyTaken
+		}
+		return err
+	}
+	err = tx.QueryRowContext(ctx, `INSERT INTO team_members(team_id,user_id) VALUES($1,$2) RETURNING created_at`, member.TeamID, member.UserID).Scan(&member.CreatedAt)
+	if err != nil {
+		return err
+	}
+	for i := range statuses {
+		s := &statuses[i]
+		err = tx.QueryRowContext(ctx, `INSERT INTO team_statuses(id,team_id,name,slug,category,position,is_default) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING created_at,updated_at`, s.ID, s.TeamID, s.Name, s.Slug, s.Category, s.Position, s.IsDefault).Scan(&s.CreatedAt, &s.UpdatedAt)
+		if err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }

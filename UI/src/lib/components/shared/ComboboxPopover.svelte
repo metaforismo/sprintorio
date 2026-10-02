@@ -2,6 +2,7 @@
 	import { Command as CommandPrimitive } from 'bits-ui';
 	import * as Popover from '$lib/components/ui/popover/index.js';
 	import type { Snippet } from 'svelte';
+	import type { HTMLButtonAttributes } from 'svelte/elements';
 
 	let {
 		open = $bindable(false),
@@ -12,7 +13,7 @@
 		showSearch = true,
 		shortcutKey,
 		trigger,
-		children,
+		children
 	}: {
 		open?: boolean;
 		placeholder?: string;
@@ -21,16 +22,17 @@
 		align?: 'start' | 'center' | 'end';
 		showSearch?: boolean;
 		shortcutKey?: string;
-		trigger: Snippet;
+		trigger: Snippet<[HTMLButtonAttributes]>;
 		children: Snippet<[string]>;
 	} = $props();
 
 	let searchValue = $state('');
 	let inputRef = $state<HTMLInputElement | null>(null);
+	let commandRef = $state<HTMLDivElement | null>(null);
 
 	$effect(() => {
-		if (open && showSearch) {
-			requestAnimationFrame(() => inputRef?.focus());
+		if (open) {
+			requestAnimationFrame(() => (showSearch ? inputRef : commandRef)?.focus());
 		}
 		if (!open) {
 			searchValue = '';
@@ -40,10 +42,16 @@
 
 <Popover.Root bind:open>
 	<Popover.Trigger>
-		{@render trigger()}
+		{#snippet child({ props })}
+			{@render trigger(props)}
+		{/snippet}
 	</Popover.Trigger>
 	<Popover.Content class="{width} p-1.5" {align}>
-		<CommandPrimitive.Root class="flex size-full flex-col overflow-hidden" shouldFilter={showSearch}>
+		<CommandPrimitive.Root
+			bind:ref={commandRef}
+			class="flex size-full flex-col overflow-hidden"
+			shouldFilter={showSearch}
+		>
 			{#if showSearch}
 				<div class="flex items-center gap-2 px-1.5 pb-1.5">
 					<CommandPrimitive.Input
@@ -54,7 +62,9 @@
 						{placeholder}
 					/>
 					{#if shortcutKey}
-						<kbd class="shrink-0 rounded border border-[var(--app-border)] bg-[var(--color-bg-tertiary)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-text-tertiary)]">
+						<kbd
+							class="shrink-0 rounded border border-[var(--app-border)] bg-[var(--color-bg-tertiary)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-text-tertiary)]"
+						>
 							{shortcutKey}
 						</kbd>
 					{/if}
@@ -62,13 +72,19 @@
 				<div class="h-px bg-[var(--app-border)] -mx-1.5 mb-1"></div>
 			{:else if shortcutKey}
 				<div class="flex justify-end px-1.5 pb-1">
-					<kbd class="shrink-0 rounded border border-[var(--app-border)] bg-[var(--color-bg-tertiary)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-text-tertiary)]">
+					<kbd
+						class="shrink-0 rounded border border-[var(--app-border)] bg-[var(--color-bg-tertiary)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-text-tertiary)]"
+					>
 						{shortcutKey}
 					</kbd>
 				</div>
 			{/if}
-			<CommandPrimitive.List class="no-scrollbar max-h-72 scroll-py-1 outline-none overflow-x-hidden overflow-y-auto space-y-0.5">
-				<CommandPrimitive.Empty class="py-4 text-center text-xs text-[var(--color-text-tertiary)]">{emptyMessage}</CommandPrimitive.Empty>
+			<CommandPrimitive.List
+				class="no-scrollbar max-h-72 scroll-py-1 outline-none overflow-x-hidden overflow-y-auto space-y-0.5"
+			>
+				<CommandPrimitive.Empty class="py-4 text-center text-xs text-[var(--color-text-tertiary)]"
+					>{emptyMessage}</CommandPrimitive.Empty
+				>
 				{@render children(searchValue)}
 			</CommandPrimitive.List>
 		</CommandPrimitive.Root>

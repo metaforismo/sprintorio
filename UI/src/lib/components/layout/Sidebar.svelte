@@ -119,8 +119,9 @@
 	}
 
 	const canManageDevMachines = $derived(
-		(!demoMode || authState.user?.is_sysadmin === true) &&
-		(ROLE_HIERARCHY[workspace.current_user_role as keyof typeof ROLE_HIERARCHY] ?? 0) >= ROLE_HIERARCHY.member
+		authState.user?.dev_machines_enabled !== false &&
+			(!demoMode || authState.user?.is_sysadmin === true) &&
+			(ROLE_HIERARCHY[workspace.current_user_role as keyof typeof ROLE_HIERARCHY] ?? 0) >= ROLE_HIERARCHY.member
 	);
 
 	async function handleLogout() {
@@ -648,8 +649,12 @@
 			</AlertDialog.Description>
 		</AlertDialog.Header>
 		<AlertDialog.Footer>
-			<AlertDialog.Cancel variant="outline" onclick={() => (pendingDeleteView = null)}>{m['sidebar.cancel']()}</AlertDialog.Cancel>
-			<AlertDialog.Action variant="destructive" onclick={handleDeleteView}>{m['sidebar.delete_view_button']()}</AlertDialog.Action>
+			<AlertDialog.Cancel variant="outline" onclick={() => (pendingDeleteView = null)}
+				>{m['sidebar.cancel']()}</AlertDialog.Cancel
+			>
+			<AlertDialog.Action variant="destructive" onclick={handleDeleteView}
+				>{m['sidebar.delete_view_button']()}</AlertDialog.Action
+			>
 		</AlertDialog.Footer>
 	</AlertDialog.Content>
 </AlertDialog.Root>
@@ -683,7 +688,7 @@
 	</div>
 
 	<!-- Navigation -->
-	<nav class="flex-1 overflow-y-auto overflow-x-hidden px-2 py-2">
+	<nav aria-label={m['sidebar.workspace_navigation']()} class="flex-1 overflow-y-auto overflow-x-hidden px-2 py-2">
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
 			onclick={(e) => {
@@ -694,6 +699,7 @@
 			<div class="space-y-px">
 				<a
 					href="/{slug}/inbox"
+					aria-current={isActive(`/${slug}/inbox`) ? 'page' : undefined}
 					class="flex items-center gap-2 rounded-md px-2 py-1 text-sm {isActive(`/${slug}/inbox`)
 						? 'bg-[var(--color-bg-hover)]/50 text-[var(--color-text-primary)]'
 						: 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]'}"
@@ -710,6 +716,7 @@
 				</a>
 				<a
 					href="/{slug}/my-issues"
+					aria-current={isActive(`/${slug}/my-issues`) ? 'page' : undefined}
 					class="flex items-center gap-2 rounded-md px-2 py-1 text-sm {isActive(`/${slug}/my-issues`)
 						? 'bg-[var(--color-bg-hover)]/50 text-[var(--color-text-primary)]'
 						: 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]'}"
@@ -719,6 +726,7 @@
 				</a>
 				<a
 					href="/{slug}/insights"
+					aria-current={isActive(`/${slug}/insights`) ? 'page' : undefined}
 					class="flex items-center gap-2 rounded-md px-2 py-1 text-sm {isActive(`/${slug}/insights`)
 						? 'bg-[var(--color-bg-hover)]/50 text-[var(--color-text-primary)]'
 						: 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]'}"
@@ -727,15 +735,15 @@
 					<span class="truncate">{m['sidebar.insights']()}</span>
 				</a>
 				{#if canManageDevMachines}
-				<a
-					href="/{slug}/machines"
-					class="flex items-center gap-2 rounded-md px-2 py-1 text-sm {isActive(`/${slug}/machines`)
-						? 'bg-[var(--color-bg-hover)]/50 text-[var(--color-text-primary)]'
-						: 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]'}"
-				>
-					<Box size={16} class="shrink-0" />
-					<span class="truncate">{m['sidebar.dev_machines']()}</span>
-				</a>
+					<a
+						href="/{slug}/machines"
+						class="flex items-center gap-2 rounded-md px-2 py-1 text-sm {isActive(`/${slug}/machines`)
+							? 'bg-[var(--color-bg-hover)]/50 text-[var(--color-text-primary)]'
+							: 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]'}"
+					>
+						<Box size={16} class="shrink-0" />
+						<span class="truncate">{m['sidebar.dev_machines']()}</span>
+					</a>
 				{/if}
 			</div>
 
@@ -747,7 +755,9 @@
 						class="flex w-full items-center px-2 py-1"
 					>
 						<span class="flex items-center gap-1">
-							<span class="text-[11px] font-semibold text-[var(--color-text-secondary)]">{m['sidebar.favorites']()}</span>
+							<span class="text-[11px] font-semibold text-[var(--color-text-secondary)]"
+								>{m['sidebar.favorites']()}</span
+							>
 							<ChevronDown
 								size={12}
 								class="text-[var(--color-text-tertiary)] transition-transform {favoritesCollapsed ? '-rotate-90' : ''}"
@@ -782,38 +792,39 @@
 
 			<!-- Teams -->
 			<div class="group/teams mt-4">
-				<div
-					role="button"
-					tabindex="0"
-					class="flex cursor-pointer items-center justify-between px-2 py-1"
-					onclick={() => (teamsCollapsed = toggleSection('teams', teamsCollapsed))}
-					onkeydown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') {
-							e.preventDefault();
-							teamsCollapsed = toggleSection('teams', teamsCollapsed);
-						}
-					}}
-				>
-					<span class="flex items-center gap-1">
+				<div class="flex items-center justify-between px-2 py-1">
+					<button
+						type="button"
+						aria-expanded={!teamsCollapsed}
+						onclick={() => (teamsCollapsed = toggleSection('teams', teamsCollapsed))}
+						class="flex min-w-0 flex-1 items-center gap-1 text-left max-md:min-h-11"
+					>
 						<span class="text-[11px] font-semibold text-[var(--color-text-secondary)]">{m['sidebar.teams']()}</span>
 						<ChevronDown
 							size={12}
 							class="text-[var(--color-text-tertiary)] transition-transform {teamsCollapsed ? '-rotate-90' : ''}"
 						/>
-					</span>
+					</button>
 					{#if oncreateteam}
 						<button
 							onclick={(e) => {
 								e.stopPropagation();
 								oncreateteam?.();
 							}}
-							class="rounded p-0.5 text-[var(--color-text-tertiary)] opacity-0 transition-opacity group-hover/teams:opacity-100 hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-secondary)]"
+							class="rounded p-0.5 max-md:min-h-11 max-md:min-w-11 text-[var(--color-text-tertiary)] opacity-100 transition-opacity md:opacity-0 md:group-hover/teams:opacity-100 focus-visible:opacity-100 hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-secondary)]"
 							title={m['sidebar.create_team']()}
 						>
 							<Plus size={14} />
 						</button>
 					{/if}
 				</div>
+				{#if teams.length === 0 && oncreateteam}
+					<button
+						onclick={() => oncreateteam?.()}
+						class="flex min-h-9 w-full items-center gap-2 rounded-md px-2 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] max-md:min-h-11"
+						><Plus size={14} />{m['sidebar.create_team']()}</button
+					>
+				{/if}
 				{#if !teamsCollapsed}
 					<div
 						transition:slideFade
@@ -853,7 +864,7 @@
 											</button>
 											<DropdownMenu.Root>
 												<DropdownMenu.Trigger
-													class="mr-1 shrink-0 rounded p-0.5 text-[var(--color-text-tertiary)] opacity-0 group-hover/team:opacity-100 data-[state=open]:opacity-100 hover:bg-[var(--color-bg-tertiary)] hover:text-[var(--color-text-secondary)]"
+													class="mr-1 shrink-0 rounded p-0.5 text-[var(--color-text-tertiary)] opacity-100 md:opacity-0 md:group-hover/team:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 hover:bg-[var(--color-bg-tertiary)] hover:text-[var(--color-text-secondary)]"
 													onclick={(e) => e.stopPropagation()}
 												>
 													<Ellipsis size={14} />
@@ -1118,6 +1129,7 @@
 						<div transition:slideFade>
 							<a
 								href="/{slug}/my-views"
+								aria-current={isActive(`/${slug}/my-views`) ? 'page' : undefined}
 								class="flex items-center gap-2 rounded-md px-2 py-1 text-sm {isActive(`/${slug}/my-views`)
 									? 'bg-[var(--color-bg-hover)]/50 text-[var(--color-text-primary)]'
 									: 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]'}"
@@ -1209,6 +1221,7 @@
 					<div transition:slideFade>
 						<a
 							href="/{slug}/projects"
+							aria-current={isActive(`/${slug}/projects`) ? 'page' : undefined}
 							class="flex items-center gap-2 rounded-md px-2 py-1 text-sm {isActive(`/${slug}/projects`)
 								? 'bg-[var(--color-bg-hover)]/50 text-[var(--color-text-primary)]'
 								: 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]'}"

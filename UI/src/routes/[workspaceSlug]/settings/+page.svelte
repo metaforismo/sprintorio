@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
+	import { experienceCopy } from '$lib/features/workspaces/experience-copy';
 	import { getWorkspace, updateWorkspace, deleteWorkspace, downloadWorkspaceExport } from '$lib/api/workspaces';
 	import type { Workspace } from '$lib/types/workspace';
 	import { onMount } from 'svelte';
@@ -26,6 +27,8 @@
 	let deleteConfirm = $state('');
 	let deleting = $state(false);
 	let exporting = $state(false);
+	let loadError = $state(false);
+	const copy = $derived(experienceCopy[getLocale() === 'it' ? 'it' : 'en']);
 
 	const minRoleOptions = $derived([
 		{ value: 'owner', label: m['settings.role_owner']() },
@@ -33,12 +36,18 @@
 		{ value: 'member', label: m['settings.role_member']() }
 	]);
 
-	onMount(async () => {
-		workspace = await getWorkspace(slug);
-		wsName = workspace.name;
-		logoUrl = workspace.logo_url ?? '';
-		shareLinkMinRole = workspace.share_link_min_role ?? 'admin';
-	});
+	async function load() {
+		loadError = false;
+		try {
+			workspace = await getWorkspace(slug);
+			wsName = workspace.name;
+			logoUrl = workspace.logo_url ?? '';
+			shareLinkMinRole = workspace.share_link_min_role ?? 'admin';
+		} catch {
+			loadError = true;
+		}
+	}
+	onMount(load);
 
 	const isOwner = $derived(
 		workspace?.current_user_role === 'owner' ||
@@ -129,30 +138,38 @@
 	}
 </script>
 
-<div class="mx-auto max-w-2xl px-8 py-10">
+<div class="mx-auto max-w-2xl px-4 py-6 sm:px-8 sm:py-10">
 	<h1 class="text-2xl font-semibold text-[var(--color-text-primary)]">{m['settings.general.title']()}</h1>
 
+	{#if loadError}<div class="mt-6 space-y-3" role="alert">
+			<p class="text-sm">{copy.failed}</p>
+			<Button onclick={load}>{copy.retry}</Button>
+		</div>{:else if !workspace}<div class="mt-6" role="status">
+			<Loader2 size={20} class="animate-spin" /><span class="sr-only">{copy.loading}</span>
+		</div>{/if}
 	{#if workspace}
 		<div class="mt-8 rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-secondary)]">
 			<!-- Workspace name -->
-			<div class="flex items-center justify-between px-5 py-4">
+			<div class="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-5">
 				<div>
 					<p class="text-sm font-medium text-[var(--color-text-primary)]">{m['settings.general.workspace_name']()}</p>
 					<p class="text-xs text-[var(--color-text-tertiary)]">{m['settings.general.workspace_name_desc']()}</p>
 				</div>
 				<input
 					type="text"
+					aria-label={m['settings.general.workspace_name']()}
+					maxlength={100}
 					bind:value={wsName}
 					onblur={handleNameBlur}
 					disabled={!isOwner || savingName}
-					class="w-[200px] rounded-md border border-[var(--app-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--app-accent)] disabled:cursor-not-allowed disabled:opacity-60"
+					class="w-full sm:w-[200px] rounded-md border border-[var(--app-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--app-accent)] disabled:cursor-not-allowed disabled:opacity-60"
 				/>
 			</div>
 
 			<div class="border-t border-[var(--app-border)]"></div>
 
 			<!-- Workspace URL -->
-			<div class="flex items-center justify-between px-5 py-4">
+			<div class="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-5">
 				<div>
 					<p class="text-sm font-medium text-[var(--color-text-primary)]">{m['settings.general.workspace_url']()}</p>
 					<p class="text-xs text-[var(--color-text-tertiary)]">{m['settings.general.workspace_url_desc']()}</p>
@@ -163,13 +180,14 @@
 			<div class="border-t border-[var(--app-border)]"></div>
 
 			<!-- Logo URL -->
-			<div class="flex items-center justify-between px-5 py-4">
+			<div class="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-5">
 				<div class="min-w-0">
 					<p class="text-sm font-medium text-[var(--color-text-primary)]">{m['settings.general.logo_url']()}</p>
 					<p class="text-xs text-[var(--color-text-tertiary)]">{m['settings.general.logo_url_desc']()}</p>
 				</div>
 				<input
 					type="url"
+					aria-label={m['settings.general.logo_url']()}
 					bind:value={logoUrl}
 					onblur={handleLogoBlur}
 					placeholder="https://"
@@ -181,13 +199,15 @@
 			<div class="border-t border-[var(--app-border)]"></div>
 
 			<!-- Owner -->
-			<div class="flex items-center justify-between px-5 py-4">
+			<div class="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-5">
 				<div>
 					<p class="text-sm font-medium text-[var(--color-text-primary)]">{m['settings.general.owner']()}</p>
 					<p class="text-xs text-[var(--color-text-tertiary)]">{m['settings.general.owner_desc']()}</p>
 				</div>
 				<div class="flex items-center gap-2">
-					<div class="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--app-accent)] text-[10px] font-medium text-[var(--app-accent-foreground)]">
+					<div
+						class="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--app-accent)] text-[10px] font-medium text-[var(--app-accent-foreground)]"
+					>
 						{(workspace.owner?.name ?? workspace.owner?.email ?? 'U').charAt(0).toUpperCase()}
 					</div>
 					<span class="text-sm text-[var(--color-text-secondary)]">
@@ -199,7 +219,7 @@
 			<div class="border-t border-[var(--app-border)]"></div>
 
 			<!-- Shared link min role -->
-			<div class="flex items-center justify-between px-5 py-4">
+			<div class="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-5">
 				<div>
 					<p class="text-sm font-medium text-[var(--color-text-primary)]">{m['settings.general.shared_link_role']()}</p>
 					<p class="text-xs text-[var(--color-text-tertiary)]">{m['settings.general.shared_link_role_desc']()}</p>
@@ -235,7 +255,9 @@
 				<div class="mt-3 rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-secondary)]">
 					<div class="flex items-center justify-between gap-4 px-5 py-4">
 						<div>
-							<p class="text-sm font-medium text-[var(--color-text-primary)]">{m['workspace_transfer.export_title']()}</p>
+							<p class="text-sm font-medium text-[var(--color-text-primary)]">
+								{m['workspace_transfer.export_title']()}
+							</p>
 							<p class="text-xs text-[var(--color-text-tertiary)]">{m['workspace_transfer.export_description']()}</p>
 						</div>
 						<Button variant="outline" onclick={handleExport} disabled={exporting}>
@@ -246,8 +268,12 @@
 					<div class="border-t border-[var(--app-border)]"></div>
 					<div class="flex items-center justify-between gap-4 px-5 py-4">
 						<div>
-							<p class="text-sm font-medium text-[var(--color-text-primary)]">{m['workspace_transfer.import_title']()}</p>
-							<p class="text-xs text-[var(--color-text-tertiary)]">{m['workspace_transfer.import_new_description']()}</p>
+							<p class="text-sm font-medium text-[var(--color-text-primary)]">
+								{m['workspace_transfer.import_title']()}
+							</p>
+							<p class="text-xs text-[var(--color-text-tertiary)]">
+								{m['workspace_transfer.import_new_description']()}
+							</p>
 						</div>
 						<WorkspaceImportDialog compact />
 					</div>
@@ -260,9 +286,11 @@
 			<div class="mt-10">
 				<h2 class="text-base font-medium text-[var(--color-text-primary)]">{m['settings.general.danger_zone']()}</h2>
 				<div class="mt-3 rounded-lg border border-red-500/30 bg-[var(--color-bg-secondary)]">
-					<div class="flex items-center justify-between px-5 py-4">
+					<div class="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-5">
 						<div>
-							<p class="text-sm font-medium text-[var(--color-text-primary)]">{m['settings.general.delete_workspace']()}</p>
+							<p class="text-sm font-medium text-[var(--color-text-primary)]">
+								{m['settings.general.delete_workspace']()}
+							</p>
 							<p class="text-xs text-[var(--color-text-tertiary)]">
 								{m['settings.general.delete_workspace_desc']()}
 							</p>
@@ -277,7 +305,9 @@
 		{/if}
 	{:else}
 		<div class="mt-8 flex justify-center py-8">
-			<div class="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-text-tertiary)] border-t-transparent"></div>
+			<div
+				class="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-text-tertiary)] border-t-transparent"
+			></div>
 		</div>
 	{/if}
 </div>
@@ -303,12 +333,10 @@
 			/>
 		</div>
 		<Dialog.Footer>
-			<Button variant="outline" onclick={() => (showDelete = false)} disabled={deleting}>{m['settings.cancel']()}</Button>
-			<Button
-				variant="destructive"
-				onclick={handleDelete}
-				disabled={deleting || deleteConfirm !== workspace?.slug}
+			<Button variant="outline" onclick={() => (showDelete = false)} disabled={deleting}
+				>{m['settings.cancel']()}</Button
 			>
+			<Button variant="destructive" onclick={handleDelete} disabled={deleting || deleteConfirm !== workspace?.slug}>
 				{deleting ? m['settings.deleting']() : m['settings.general.delete_workspace']()}
 			</Button>
 		</Dialog.Footer>

@@ -5,8 +5,7 @@
 	import { CalendarDate } from '@internationalized/date';
 	import type { DateValue } from '@internationalized/date';
 	import { CalendarIcon, X } from 'lucide-svelte';
-	import { m } from '$lib/paraglide/messages.js';
-	import { getLocale, setLocale } from '$lib/paraglide/runtime.js';
+	import { getLocale } from '$lib/paraglide/runtime.js';
 
 	let {
 		value = null,
@@ -23,6 +22,7 @@
 	} = $props();
 
 	let open = $state(false);
+	let triggerElement: HTMLButtonElement | undefined = $state();
 
 	const displayDate = $derived.by(() => {
 		if (!value) return null;
@@ -55,43 +55,52 @@
 		}
 	}
 
-	function handleClear(e: MouseEvent) {
-		e.stopPropagation();
+	function handleClear() {
 		onchange(null);
 		open = false;
+		triggerElement?.focus();
 	}
 </script>
 
 <Popover.Root bind:open>
-	<Popover.Trigger>
-		<button class="flex items-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--color-bg-secondary)] px-2.5 py-1 text-xs hover:bg-[var(--color-bg-hover)] {displayDate && colorClass ? colorClass : 'text-[var(--color-text-secondary)]'}">
-			<CalendarIcon size={12} />
-			{#if displayDate}
-				{displayDate}
-				<span
-					onclick={handleClear}
-					onkeydown={(e) => { if (e.key === 'Enter') handleClear(e as unknown as MouseEvent); }}
-					role="button"
-					tabindex={0}
-					class="ml-1 inline-flex rounded p-0.5 hover:bg-[var(--color-bg-hover)]"
+	<div class="inline-flex items-center gap-1">
+		<Popover.Trigger>
+			{#snippet child({ props })}
+				<button
+					{...props}
+					bind:this={triggerElement}
+					type="button"
+					class="flex items-center gap-1.5 rounded-md border border-[var(--app-border)] bg-[var(--color-bg-secondary)] px-2.5 py-1 text-xs hover:bg-[var(--color-bg-hover)] {displayDate &&
+					colorClass
+						? colorClass
+						: 'text-[var(--color-text-secondary)]'}"
 				>
-					<X size={10} />
-				</span>
-			{:else}
-				{placeholder}
-			{/if}
-		</button>
-	</Popover.Trigger>
+					<CalendarIcon size={12} />
+					{#if displayDate}
+						{displayDate}
+					{:else}
+						{placeholder}
+					{/if}
+				</button>
+			{/snippet}
+		</Popover.Trigger>
+		{#if displayDate}
+			<button
+				type="button"
+				onclick={handleClear}
+				aria-label={getLocale() === 'it' ? 'Rimuovi date' : 'Clear date'}
+				class="inline-flex min-h-7 min-w-7 items-center justify-center rounded-md text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]"
+			>
+				<X size={12} />
+			</button>
+		{/if}
+	</div>
 	<Popover.Content class="w-auto p-0" align="start">
 		{#if dueDateMode}
 			<DueDatePickerPanel {value} {onchange} close={() => (open = false)} />
 		{:else}
 			{#key value}
-				<Calendar
-					type="single"
-					value={calendarValue}
-					onValueChange={handleSelect}
-				/>
+				<Calendar type="single" value={calendarValue} onValueChange={handleSelect} />
 			{/key}
 		{/if}
 	</Popover.Content>

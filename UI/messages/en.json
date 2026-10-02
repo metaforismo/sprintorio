@@ -229,6 +229,7 @@
 	"cycles.create.description_placeholder": "What's the goal for this cycle?",
 	"cycles.create.goals_placeholder": "e.g. Ship auth flow, fix 20 bugs",
 	"cycles.create.name_placeholder": "e.g. Cycle 1",
+	"cycles.create.default_name": "Cycle {number}",
 	"cycles.create.title": "Create cycle",
 	"cycles.delete_cycle": "Delete cycle",
 	"cycles.edit.description": "Update the cycle details.",

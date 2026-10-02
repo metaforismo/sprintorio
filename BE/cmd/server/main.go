@@ -120,7 +120,7 @@ func main() {
 	// Handlers
 	healthH := handler.NewHealthHandler(db)
 	loginThrottle := mw.NewLoginThrottle(5, 15*time.Minute)
-	authH := handler.NewAuthHandler(authSvc, cfg.Environment != "development", loginThrottle, cfg.IsSysAdmin)
+	authH := handler.NewAuthHandler(authSvc, cfg.Environment != "development", loginThrottle, cfg.IsSysAdmin, cfg.DevMachine.Enabled)
 	workspaceH := handler.NewWorkspaceHandler(workspaceSvc)
 	teamH := handler.NewTeamHandler(teamSvc)
 	issueH := handler.NewIssueHandler(issueSvc, commentSvc, userRepo, teamStatusRepo, projectRepo, cycleRepo, relationSvc)
@@ -234,7 +234,7 @@ func main() {
 	api.POST("/workspaces/import", workspaceTransferH.Import)
 
 	// Workspace-scoped routes
-	ws := api.Group("/workspaces/:slug", mw.WorkspaceMembership(workspaceRepo))
+	ws := api.Group("/workspaces/:slug", mw.WorkspaceMembership(workspaceRepo), mw.TeamResourceScope(teamRepo, teamStatusRepo, cycleRepo))
 	ws.GET("", workspaceH.Get)
 	ws.PATCH("", workspaceH.Update, mw.RequireOwner())
 	ws.DELETE("", workspaceH.Delete, mw.RequireOwner())
@@ -260,13 +260,13 @@ func main() {
 
 	// Cycles (team-scoped)
 	ws.GET("/teams/:teamId/cycles", cycleH.List)
-	ws.POST("/teams/:teamId/cycles", cycleH.Create)
+	ws.POST("/teams/:teamId/cycles", cycleH.Create, mw.RequirePermission(domain.PermCycleManage))
 	ws.GET("/teams/:teamId/cycles/velocity", cycleH.Velocity)
 	ws.GET("/teams/:teamId/cycles/:cycleId", cycleH.Get)
-	ws.PATCH("/teams/:teamId/cycles/:cycleId", cycleH.Update)
-	ws.POST("/teams/:teamId/cycles/:cycleId/complete", cycleH.Complete)
+	ws.PATCH("/teams/:teamId/cycles/:cycleId", cycleH.Update, mw.RequirePermission(domain.PermCycleManage))
+	ws.POST("/teams/:teamId/cycles/:cycleId/complete", cycleH.Complete, mw.RequirePermission(domain.PermCycleManage))
 	ws.GET("/teams/:teamId/cycles/:cycleId/burndown", cycleH.Burndown)
-	ws.DELETE("/teams/:teamId/cycles/:cycleId", cycleH.Delete)
+	ws.DELETE("/teams/:teamId/cycles/:cycleId", cycleH.Delete, mw.RequirePermission(domain.PermCycleManage))
 
 	// Issues
 	ws.GET("/issues", issueH.List)

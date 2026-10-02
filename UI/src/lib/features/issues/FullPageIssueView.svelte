@@ -8,7 +8,20 @@
 	import type { WorkspaceMember } from '$lib/types/workspace';
 	import type { Label } from '$lib/types/label';
 	import type { Project } from '$lib/types/project';
-	import { listComments, createComment, resolveComment, reopenComment, getIssueHistory, getIssue, signIssuePromptAssets, createSubIssue, bulkCreateSubIssues, expandIssueDescription, subscribeToIssue, unsubscribeFromIssue } from '$lib/api/issues';
+	import {
+		listComments,
+		createComment,
+		resolveComment,
+		reopenComment,
+		getIssueHistory,
+		getIssue,
+		signIssuePromptAssets,
+		createSubIssue,
+		bulkCreateSubIssues,
+		expandIssueDescription,
+		subscribeToIssue,
+		unsubscribeFromIssue
+	} from '$lib/api/issues';
 	import { listMembers } from '$lib/api/members';
 	import { listLabels } from '$lib/api/labels';
 	import { listProjects } from '$lib/api/projects';
@@ -24,14 +37,41 @@
 	import * as ContextMenu from '$lib/components/ui/context-menu';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
 	import { Checkbox } from '$lib/components/ui/checkbox';
-	import { StatusSelector, PrioritySelector, AssigneeSelector, LabelSelector, ProjectSelector, CycleSelector } from './selectors';
+	import {
+		StatusSelector,
+		PrioritySelector,
+		AssigneeSelector,
+		LabelSelector,
+		ProjectSelector,
+		CycleSelector
+	} from './selectors';
 	import { createKeyboardHandler } from '$lib/utils/keyboard';
 	import {
-		ChevronUp, ChevronDown, ChevronRight, Plus, CalendarDays,
-		Copy, Link as LinkIcon, GitBranch, SquareMousePointer,
-		CircleDot, ArrowUpCircle, UserCircle, FolderKanban, Pencil, Layers,
-		Tag, RefreshCw, ArrowUp, MoreHorizontal, Check, Bell,
-		Trash2, CornerDownRight, Ban, ArrowRight
+		ChevronUp,
+		ChevronDown,
+		ChevronRight,
+		Plus,
+		CalendarDays,
+		Copy,
+		Link as LinkIcon,
+		GitBranch,
+		SquareMousePointer,
+		CircleDot,
+		ArrowUpCircle,
+		UserCircle,
+		FolderKanban,
+		Pencil,
+		Layers,
+		Tag,
+		RefreshCw,
+		ArrowUp,
+		MoreHorizontal,
+		Check,
+		Bell,
+		Trash2,
+		CornerDownRight,
+		Ban,
+		ArrowRight
 	} from 'lucide-svelte';
 	import { listCycles } from '$lib/api/cycles';
 	import type { Cycle } from '$lib/types/cycle';
@@ -51,7 +91,9 @@
 	import { getIssueCopyPrompt } from '$lib/api/ai-settings';
 	import HistoryAssignees from './HistoryAssignees.svelte';
 	import IssueMachineActions from '$lib/features/dev-machines/IssueMachineActions.svelte';
-	import IssueMachinePickerDialog, { type IssueMachineIntent } from '$lib/features/dev-machines/IssueMachinePickerDialog.svelte';
+	import IssueMachinePickerDialog, {
+		type IssueMachineIntent
+	} from '$lib/features/dev-machines/IssueMachinePickerDialog.svelte';
 	import CreateMachineDialog from '$lib/features/dev-machines/CreateMachineDialog.svelte';
 	import IssueRepositoryDialog from '$lib/features/dev-machines/IssueRepositoryDialog.svelte';
 	import AgentRunDialog from '$lib/features/dev-machines/AgentRunDialog.svelte';
@@ -122,10 +164,10 @@
 	const priorityValues: IssuePriority[] = [0, 1, 2, 3, 4];
 	const imageUploadUrl = $derived(`/api/workspaces/${slug}/upload`);
 
-	let issueProject = $derived(projects.find(p => p.id === issue.project_id));
-	let issueCycle = $derived(cycles.find(c => c.id === issue.cycle_id));
+	let issueProject = $derived(projects.find((p) => p.id === issue.project_id));
+	let issueCycle = $derived(cycles.find((c) => c.id === issue.cycle_id));
 	let currentParentPreview = $derived(parentDescriptionPreview(issue.parent?.description));
-	let issueTeam = $derived(teams.find(t => t.id === issue.team_id));
+	let issueTeam = $derived(teams.find((t) => t.id === issue.team_id));
 
 	// Get remote cursors for a specific field from presence state
 	function getRemoteCursors(field: string) {
@@ -151,8 +193,12 @@
 		labels = l ?? [];
 		projects = p ?? [];
 		loaded = true;
-		listCycles(slug, issue.team_id).then(c => cycles = c).catch(() => {});
-		listTeams(slug).then(t => teams = t).catch(() => {});
+		listCycles(slug, issue.team_id)
+			.then((c) => (cycles = c))
+			.catch(() => {});
+		listTeams(slug)
+			.then((t) => (teams = t))
+			.catch(() => {});
 
 		// Join presence AFTER members are loaded so names resolve correctly
 		presenceState.join(issue.id, m ?? []);
@@ -162,9 +208,7 @@
 	function matchesCurrentIssue(detail: any): boolean {
 		if (!detail) return false;
 		// Match on identifier, id, or issue_id (comment.created uses issue_id)
-		return detail.identifier === issue.identifier
-			|| detail.id === issue.id
-			|| detail.issue_id === issue.id;
+		return detail.identifier === issue.identifier || detail.id === issue.id || detail.issue_id === issue.id;
 	}
 
 	function onIssueUpdated(e: Event) {
@@ -185,18 +229,50 @@
 			refreshActivity();
 		}
 	}
-	function onPresenceJoin(e: Event) { presenceState.handleJoin((e as CustomEvent).detail); }
-	function onPresenceLeave(e: Event) { presenceState.handleLeave((e as CustomEvent).detail); }
-	function onPresenceSync(e: Event) { presenceState.handleSync((e as CustomEvent).detail); }
-	function onFocusUpdate(e: Event) { presenceState.handleFocusUpdate((e as CustomEvent).detail); }
-	function onFocusLeaveEvent(e: Event) { presenceState.handleFocusLeave((e as CustomEvent).detail); }
-	function onReconnected() { if (loaded) presenceState.join(issue.id, members); }
+	function onPresenceJoin(e: Event) {
+		presenceState.handleJoin((e as CustomEvent).detail);
+	}
+	function onPresenceLeave(e: Event) {
+		presenceState.handleLeave((e as CustomEvent).detail);
+	}
+	function onPresenceSync(e: Event) {
+		presenceState.handleSync((e as CustomEvent).detail);
+	}
+	function onFocusUpdate(e: Event) {
+		presenceState.handleFocusUpdate((e as CustomEvent).detail);
+	}
+	function onFocusLeaveEvent(e: Event) {
+		presenceState.handleFocusLeave((e as CustomEvent).detail);
+	}
+	function onReconnected() {
+		if (loaded) presenceState.join(issue.id, members);
+	}
 
 	const issueKeyHandler = createKeyboardHandler([
-		{ key: 's', handler: () => { statusOpen = true; } },
-		{ key: 'p', handler: () => { priorityOpen = true; } },
-		{ key: 'a', handler: () => { assigneeOpen = true; } },
-		{ key: 'l', handler: () => { labelsOpen = true; } },
+		{
+			key: 's',
+			handler: () => {
+				statusOpen = true;
+			}
+		},
+		{
+			key: 'p',
+			handler: () => {
+				priorityOpen = true;
+			}
+		},
+		{
+			key: 'a',
+			handler: () => {
+				assigneeOpen = true;
+			}
+		},
+		{
+			key: 'l',
+			handler: () => {
+				labelsOpen = true;
+			}
+		}
 	]);
 
 	onMount(() => {
@@ -283,7 +359,6 @@
 		}
 	}
 
-
 	async function reworkSelectedDescriptionText(selectedText: string): Promise<string> {
 		try {
 			const result = await expandIssueDescription(slug, issue.identifier, { selected_text: selectedText });
@@ -361,17 +436,17 @@
 				return getPriorityLabel(Number(value) as IssuePriority) ?? value;
 			case 'assignee':
 			case 'assignee_id': {
-				const member = members.find(m => m.user_id === value);
-				return member ? (member.name || member.email) : m['issue.history.unassigned']();
+				const member = members.find((m) => m.user_id === value);
+				return member ? member.name || member.email : m['issue.history.unassigned']();
 			}
 			case 'project':
 			case 'project_id': {
-				const p = projects.find(p => p.id === value);
+				const p = projects.find((p) => p.id === value);
 				return p ? p.name : '-';
 			}
 			case 'cycle':
 			case 'cycle_id': {
-				const c = cycles.find(c => c.id === value);
+				const c = cycles.find((c) => c.id === value);
 				return c ? c.name : '-';
 			}
 			case 'parent':
@@ -388,44 +463,86 @@
 
 	function historyFieldLabel(field: string): string {
 		switch (field) {
-			case 'assignee_id': return m['issue.history.assignee']();
-			case 'assignees': return m['issue.history.assignees']();
-			case 'due_date': return m['issue.history.due_date']();
-			case 'parent_id': return m['issue.history.parent']();
-			case 'project_id': return m['issue.history.project']();
-			case 'cycle_id': return m['issue.history.cycle']();
-			case 'status_id': return m['issue.history.status']();
-			default: return field;
+			case 'assignee_id':
+				return m['issue.history.assignee']();
+			case 'assignees':
+				return m['issue.history.assignees']();
+			case 'due_date':
+				return m['issue.history.due_date']();
+			case 'parent_id':
+				return m['issue.history.parent']();
+			case 'project_id':
+				return m['issue.history.project']();
+			case 'cycle_id':
+				return m['issue.history.cycle']();
+			case 'status_id':
+				return m['issue.history.status']();
+			default:
+				return field;
 		}
 	}
 
 	function historyIcon(field: string): typeof CircleDot {
 		switch (field) {
-			case 'status': case 'status_id': return CircleDot;
-			case 'priority': return ArrowUpCircle;
-			case 'assignee': case 'assignee_id': case 'assignees': return UserCircle;
-			case 'title': case 'description': return Pencil;
-			case 'due_date': return CalendarDays;
-			case 'labels': return Tag;
-			case 'project': case 'project_id': return FolderKanban;
-			case 'cycle': case 'cycle_id': return RefreshCw;
-			case 'parent': case 'parent_id': return CornerDownRight;
-			default: return CircleDot;
+			case 'status':
+			case 'status_id':
+				return CircleDot;
+			case 'priority':
+				return ArrowUpCircle;
+			case 'assignee':
+			case 'assignee_id':
+			case 'assignees':
+				return UserCircle;
+			case 'title':
+			case 'description':
+				return Pencil;
+			case 'due_date':
+				return CalendarDays;
+			case 'labels':
+				return Tag;
+			case 'project':
+			case 'project_id':
+				return FolderKanban;
+			case 'cycle':
+			case 'cycle_id':
+				return RefreshCw;
+			case 'parent':
+			case 'parent_id':
+				return CornerDownRight;
+			default:
+				return CircleDot;
 		}
 	}
 
 	function historyColor(field: string): string {
 		switch (field) {
-			case 'status': case 'status_id': return 'text-blue-400';
-			case 'priority': return 'text-orange-400';
-			case 'assignee': case 'assignee_id': case 'assignees': return 'text-purple-400';
-			case 'due_date': return 'text-red-400';
-			case 'labels': return 'text-teal-400';
-			case 'project': case 'project_id': return 'text-indigo-400';
-			case 'cycle': case 'cycle_id': return 'text-cyan-400';
-			case 'parent': case 'parent_id': return 'text-sky-400';
-			case 'title': case 'description': return 'text-[var(--color-text-tertiary)]';
-			default: return 'text-[var(--color-text-tertiary)]';
+			case 'status':
+			case 'status_id':
+				return 'text-blue-400';
+			case 'priority':
+				return 'text-orange-400';
+			case 'assignee':
+			case 'assignee_id':
+			case 'assignees':
+				return 'text-purple-400';
+			case 'due_date':
+				return 'text-red-400';
+			case 'labels':
+				return 'text-teal-400';
+			case 'project':
+			case 'project_id':
+				return 'text-indigo-400';
+			case 'cycle':
+			case 'cycle_id':
+				return 'text-cyan-400';
+			case 'parent':
+			case 'parent_id':
+				return 'text-sky-400';
+			case 'title':
+			case 'description':
+				return 'text-[var(--color-text-tertiary)]';
+			default:
+				return 'text-[var(--color-text-tertiary)]';
 		}
 	}
 
@@ -477,26 +594,27 @@
 	async function refreshIssue() {
 		try {
 			const fresh = await getIssue(slug, issue.identifier);
-			const idx = issuesState.issues.findIndex(i => i.identifier === issue.identifier);
+			const idx = issuesState.issues.findIndex((i) => i.identifier === issue.identifier);
 			if (idx >= 0) issuesState.issues[idx] = fresh;
 			if (issuesState.selectedIssue?.identifier === issue.identifier) {
 				issuesState.selectedIssue = fresh;
 			}
 			onupdated?.(fresh);
-		} catch { /* ignore */ }
+		} catch {
+			/* ignore */
+		}
 		// Refresh activity in background
 		refreshActivity();
 	}
 
 	async function refreshActivity() {
 		try {
-			const [c, h] = await Promise.all([
-				listComments(slug, issue.identifier),
-				getIssueHistory(slug, issue.identifier)
-			]);
+			const [c, h] = await Promise.all([listComments(slug, issue.identifier), getIssueHistory(slug, issue.identifier)]);
 			comments = c ?? [];
 			history = h ?? [];
-		} catch { /* ignore */ }
+		} catch {
+			/* ignore */
+		}
 	}
 
 	function copyToClipboard(text: string, toastKey: string) {
@@ -517,7 +635,9 @@
 			isSubscribed = res.is_subscribed;
 			issuesState.setSubscription(issue.identifier, res.is_subscribed);
 			onupdated?.({ ...issue, is_subscribed: res.is_subscribed });
-			appToast.success(isSubscribed ? m['issue.toast.notifications_enabled']() : m['issue.toast.notifications_disabled']());
+			appToast.success(
+				isSubscribed ? m['issue.toast.notifications_enabled']() : m['issue.toast.notifications_disabled']()
+			);
 		} catch (err: any) {
 			isSubscribed = !nextValue;
 			appToast.apiError(err, m['issue.toast.failed_notifications']());
@@ -534,7 +654,13 @@
 				issueTeam ? Promise.resolve(teams) : listTeams(slug)
 			]);
 			if (!issueTeam) teams = copyTeams;
-			await navigator.clipboard.writeText(getAIPrompt(assets, settings.issue_copy_prompt, copyTeams.find(t => t.id === issue.team_id)));
+			await navigator.clipboard.writeText(
+				getAIPrompt(
+					assets,
+					settings.issue_copy_prompt,
+					copyTeams.find((t) => t.id === issue.team_id)
+				)
+			);
 			appToast.success(m['issue.toast.ai_prompt_copied']());
 		} catch (error) {
 			appToast.apiError(error, m['issue.toast.failed_ai_prompt']());
@@ -545,9 +671,7 @@
 		const user = authState.user;
 		if (!user) return 'user';
 		// Use name or email prefix, lowercase, no spaces
-		const name = (user.name || user.email.split('@')[0])
-			.toLowerCase()
-			.replace(/[^a-z0-9]/g, '');
+		const name = (user.name || user.email.split('@')[0]).toLowerCase().replace(/[^a-z0-9]/g, '');
 		return name || 'user';
 	}
 
@@ -567,7 +691,7 @@
 		navigator.clipboard.writeText(branch);
 
 		// Move to "in progress" (started category)
-		const startedStatus = teamStatusesState.statuses.find(s => s.category === 'started');
+		const startedStatus = teamStatusesState.statuses.find((s) => s.category === 'started');
 		if (startedStatus && issue.status_id !== startedStatus.id) {
 			try {
 				await issuesState.update(slug, issue.identifier, { status_id: startedStatus.id });
@@ -595,7 +719,10 @@
 			el.innerHTML = html;
 			return (el.textContent ?? '').replace(/\s+/g, ' ').trim();
 		}
-		return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+		return html
+			.replace(/<[^>]*>/g, ' ')
+			.replace(/\s+/g, ' ')
+			.trim();
 	}
 
 	function parentDescriptionPreview(description: string | null | undefined): string {
@@ -629,8 +756,23 @@
 
 		const parts: string[] = [];
 		const blockTags = new Set([
-			'ADDRESS', 'ARTICLE', 'ASIDE', 'BLOCKQUOTE', 'DIV', 'H1', 'H2', 'H3',
-			'H4', 'H5', 'H6', 'LI', 'OL', 'P', 'PRE', 'SECTION', 'UL'
+			'ADDRESS',
+			'ARTICLE',
+			'ASIDE',
+			'BLOCKQUOTE',
+			'DIV',
+			'H1',
+			'H2',
+			'H3',
+			'H4',
+			'H5',
+			'H6',
+			'LI',
+			'OL',
+			'P',
+			'PRE',
+			'SECTION',
+			'UL'
 		]);
 
 		function appendBreak() {
@@ -672,13 +814,19 @@
 
 		for (const child of root.childNodes) walk(child);
 
-		return parts.join('')
+		return parts
+			.join('')
 			.replace(/[ \t]+\n/g, '\n')
 			.replace(/\n{3,}/g, '\n\n')
 			.trim();
 	}
 
-	function applyIssueCopyTemplate(template: string, issueXml: string, teamKey: string, selectedTeam: Team | undefined): string {
+	function applyIssueCopyTemplate(
+		template: string,
+		issueXml: string,
+		teamKey: string,
+		selectedTeam: Team | undefined
+	): string {
 		const values: Record<string, string> = {
 			issue_identifier: issue.identifier,
 			issue_title: decodeHtmlEntities(issue.title),
@@ -686,10 +834,17 @@
 			team_name: selectedTeam?.name ?? teamKey,
 			issue_xml: issueXml
 		};
-		return template.replace(/{{\s*(issue_identifier|issue_title|team_key|team_name|issue_xml)\s*}}/g, (_, key) => values[key] ?? '');
+		return template.replace(
+			/{{\s*(issue_identifier|issue_title|team_key|team_name|issue_xml)\s*}}/g,
+			(_, key) => values[key] ?? ''
+		);
 	}
 
-	function getAIPrompt(signedAssets: Record<string, string> = {}, workspaceTemplate = '', selectedTeam = issueTeam): string {
+	function getAIPrompt(
+		signedAssets: Record<string, string> = {},
+		workspaceTemplate = '',
+		selectedTeam = issueTeam
+	): string {
 		let issueXml = `<issue identifier="${issue.identifier}">\n`;
 		issueXml += `<title>${decodeHtmlEntities(issue.title)}</title>\n`;
 		const teamKey = issue.identifier.split('-')[0];
@@ -706,7 +861,10 @@
 			issueXml += `<description>${htmlToPromptMarkdown(issue.description, signedAssets)}</description>\n`;
 		}
 		issueXml += `</issue>`;
-		const template = selectedTeam?.issue_copy_prompt?.trim() || workspaceTemplate.trim() || 'Work on issue {{issue_identifier}}:\n\n{{issue_xml}}';
+		const template =
+			selectedTeam?.issue_copy_prompt?.trim() ||
+			workspaceTemplate.trim() ||
+			'Work on issue {{issue_identifier}}:\n\n{{issue_xml}}';
 		return applyIssueCopyTemplate(template, issueXml, teamKey, selectedTeam);
 	}
 
@@ -720,17 +878,14 @@
 		else if (diffDays === -1) label = m['issue.yesterday']();
 		else label = due.toLocaleDateString(getLocale(), { month: 'short', day: 'numeric' });
 
-		const colorClass = diffDays < 0
-			? 'text-red-400'
-			: diffDays <= 1
-				? 'text-orange-400'
-				: 'text-[var(--color-text-primary)]';
+		const colorClass =
+			diffDays < 0 ? 'text-red-400' : diffDays <= 1 ? 'text-orange-400' : 'text-[var(--color-text-primary)]';
 
 		return { label, colorClass };
 	}
 
 	let issueCount = $derived(issuesState.issues.length);
-	let currentIndex = $derived(issuesState.issues.findIndex(i => i.identifier === issue.identifier));
+	let currentIndex = $derived(issuesState.issues.findIndex((i) => i.identifier === issue.identifier));
 </script>
 
 <div class="flex h-full min-w-0 flex-col">
@@ -752,20 +907,28 @@
 				onclick={toggleSubscription}
 				disabled={subscriptionBusy}
 				aria-pressed={isSubscribed}
-				class="rounded p-1.5 transition-colors disabled:opacity-50 {isSubscribed ? 'bg-[var(--app-accent)] text-[var(--app-accent-foreground)]' : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]'}"
+				class="rounded p-1.5 transition-colors disabled:opacity-50 {isSubscribed
+					? 'bg-[var(--app-accent)] text-[var(--app-accent-foreground)]'
+					: 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]'}"
 				title={isSubscribed ? m['issue.disable_notifications']() : m['issue.enable_notifications']()}
 			>
 				<Bell size={14} />
 			</button>
 			<button
-				onclick={() => { navigator.clipboard.writeText(issue.identifier); appToast.success(m['issue.toast.label_copied']({ label: 'ID' })) }}
+				onclick={() => {
+					navigator.clipboard.writeText(issue.identifier);
+					appToast.success(m['issue.toast.label_copied']({ label: 'ID' }));
+				}}
 				class="rounded p-1.5 text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)] transition-colors"
 				title={m['issue.copy_id']()}
 			>
 				<Copy size={14} />
 			</button>
 			<button
-				onclick={() => { navigator.clipboard.writeText(window.location.href); appToast.success(m['issue.toast.label_copied']({ label: 'Link' })) }}
+				onclick={() => {
+					navigator.clipboard.writeText(window.location.href);
+					appToast.success(m['issue.toast.label_copied']({ label: 'Link' }));
+				}}
 				class="rounded p-1.5 text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)] transition-colors"
 				title={m['issue.copy_link']()}
 			>
@@ -787,20 +950,33 @@
 			</button>
 			<Popover.Root bind:open={issueActionsOpen}>
 				<Popover.Trigger>
-					<button
-						type="button"
-						class="rounded p-1.5 text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)] transition-colors"
-						title={m['issue.issue_actions']()}
-					>
-						<MoreHorizontal size={14} />
-					</button>
+					{#snippet child({ props })}
+						<button
+							{...props}
+							type="button"
+							class="rounded p-1.5 text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)] transition-colors"
+							title={m['issue.issue_actions']()}
+						>
+							<MoreHorizontal size={14} />
+						</button>
+					{/snippet}
 				</Popover.Trigger>
 				<Popover.Content class="w-64 max-w-[calc(100vw-1rem)] p-1" align="end">
-					<IssueMachineActions {slug} {issue} bind:repositoryOpen={issueActionsRepositoryOpen} bind:pickerOpen={issueActionsMachinePickerOpen} bind:pickerIntent={issueActionsMachineIntent} onaction={() => (issueActionsOpen = false)} />
+					<IssueMachineActions
+						{slug}
+						{issue}
+						bind:repositoryOpen={issueActionsRepositoryOpen}
+						bind:pickerOpen={issueActionsMachinePickerOpen}
+						bind:pickerIntent={issueActionsMachineIntent}
+						onaction={() => (issueActionsOpen = false)}
+					/>
 					<div class="my-1 h-px bg-[var(--app-border)]"></div>
 					<button
 						type="button"
-						onclick={() => { issueActionsOpen = false; parentPickerOpen = true; }}
+						onclick={() => {
+							issueActionsOpen = false;
+							parentPickerOpen = true;
+						}}
 						class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
 					>
 						<CornerDownRight size={14} />
@@ -809,7 +985,10 @@
 					<div class="my-1 h-px bg-[var(--app-border)]"></div>
 					<button
 						type="button"
-						onclick={() => { issueActionsOpen = false; openAddRelation('related'); }}
+						onclick={() => {
+							issueActionsOpen = false;
+							openAddRelation('related');
+						}}
 						class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
 					>
 						<LinkIcon size={14} />
@@ -817,7 +996,10 @@
 					</button>
 					<button
 						type="button"
-						onclick={() => { issueActionsOpen = false; openAddRelation('blocked_by'); }}
+						onclick={() => {
+							issueActionsOpen = false;
+							openAddRelation('blocked_by');
+						}}
 						class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
 					>
 						<Ban size={14} />
@@ -825,7 +1007,10 @@
 					</button>
 					<button
 						type="button"
-						onclick={() => { issueActionsOpen = false; openAddRelation('blocking'); }}
+						onclick={() => {
+							issueActionsOpen = false;
+							openAddRelation('blocking');
+						}}
 						class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
 					>
 						<ArrowRight size={14} />
@@ -833,7 +1018,10 @@
 					</button>
 					<button
 						type="button"
-						onclick={() => { issueActionsOpen = false; openAddRelation('duplicate'); }}
+						onclick={() => {
+							issueActionsOpen = false;
+							openAddRelation('duplicate');
+						}}
 						class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
 					>
 						<Copy size={14} />
@@ -854,7 +1042,9 @@
 						</div>
 					{/each}
 					{#if presenceState.activeViewers.length > 5}
-						<div class="flex h-6 w-6 items-center justify-center rounded-full border-2 border-[var(--color-bg)] bg-[var(--color-bg-tertiary)] text-[9px] text-[var(--color-text-tertiary)]">
+						<div
+							class="flex h-6 w-6 items-center justify-center rounded-full border-2 border-[var(--color-bg)] bg-[var(--color-bg-tertiary)] text-[9px] text-[var(--color-text-tertiary)]"
+						>
 							+{presenceState.activeViewers.length - 5}
 						</div>
 					{/if}
@@ -895,10 +1085,20 @@
 						<input
 							type="text"
 							bind:value={titleValue}
-							onblur={() => { saveTitle(); presenceState.sendFocusLeave(issue.id); }}
+							onblur={() => {
+								saveTitle();
+								presenceState.sendFocusLeave(issue.id);
+							}}
 							onfocus={() => presenceState.sendFocus(issue.id, 'title', 0)}
-							oninput={(e) => presenceState.sendFocus(issue.id, 'title', (e.currentTarget as HTMLInputElement).selectionStart ?? 0)}
-							onkeydown={(e) => { if (e.key === 'Enter') saveTitle(); if (e.key === 'Escape') { titleValue = issue.title; editingTitle = false; } }}
+							oninput={(e) =>
+								presenceState.sendFocus(issue.id, 'title', (e.currentTarget as HTMLInputElement).selectionStart ?? 0)}
+							onkeydown={(e) => {
+								if (e.key === 'Enter') saveTitle();
+								if (e.key === 'Escape') {
+									titleValue = issue.title;
+									editingTitle = false;
+								}
+							}}
 							autofocus
 							class="w-full bg-transparent text-lg font-semibold text-[var(--color-text-primary)] outline-none"
 						/>
@@ -923,19 +1123,37 @@
 										onclick={goToParentIssue}
 										class="inline-flex max-w-full items-center gap-1.5 rounded-md border border-transparent px-1.5 py-1 text-[var(--color-text-secondary)] transition-colors hover:border-[var(--app-border)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
 									>
-										<IssueStatusIcon status={issue.parent.status ?? 'backlog'} category={issue.parent.status_info?.category} color={issue.parent.status_info?.color} size={13} />
-										<span class="shrink-0 tabular-nums text-[var(--color-text-tertiary)]">{issue.parent.identifier}</span>
+										<IssueStatusIcon
+											status={issue.parent.status ?? 'backlog'}
+											category={issue.parent.status_info?.category}
+											color={issue.parent.status_info?.color}
+											size={13}
+										/>
+										<span class="shrink-0 tabular-nums text-[var(--color-text-tertiary)]"
+											>{issue.parent.identifier}</span
+										>
 										<span class="min-w-0 truncate">{issue.parent.title}</span>
 									</button>
 								</ContextMenu.Trigger>
-								<div class="pointer-events-none absolute left-0 top-full z-40 mt-2 hidden w-72 rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-secondary)] p-3 shadow-xl group-hover/parent:block">
+								<div
+									class="pointer-events-none absolute left-0 top-full z-40 mt-2 hidden w-72 rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-secondary)] p-3 shadow-xl group-hover/parent:block"
+								>
 									<div class="flex items-start gap-2">
-										<IssueStatusIcon status={issue.parent.status ?? 'backlog'} category={issue.parent.status_info?.category} color={issue.parent.status_info?.color} size={14} />
+										<IssueStatusIcon
+											status={issue.parent.status ?? 'backlog'}
+											category={issue.parent.status_info?.category}
+											color={issue.parent.status_info?.color}
+											size={14}
+										/>
 										<div class="min-w-0 flex-1">
 											<div class="text-xs text-[var(--color-text-tertiary)]">{issue.parent.identifier}</div>
-											<div class="mt-0.5 text-sm font-medium leading-5 text-[var(--color-text-primary)]">{issue.parent.title}</div>
+											<div class="mt-0.5 text-sm font-medium leading-5 text-[var(--color-text-primary)]">
+												{issue.parent.title}
+											</div>
 											{#if currentParentPreview}
-												<p class="mt-2 line-clamp-3 text-xs leading-5 text-[var(--color-text-tertiary)]">{currentParentPreview}</p>
+												<p class="mt-2 line-clamp-3 text-xs leading-5 text-[var(--color-text-tertiary)]">
+													{currentParentPreview}
+												</p>
 											{/if}
 										</div>
 									</div>
@@ -946,7 +1164,9 @@
 									<span class="flex items-center gap-2"><CornerDownRight size={14} />{m['issue.change_parent']()}</span>
 								</ContextMenu.Item>
 								<ContextMenu.Item class="text-red-500 focus:text-red-500" onclick={() => (removeParentOpen = true)}>
-									<span class="flex w-full items-center justify-between gap-2"><span>{m['issue.remove_parent']()}</span><Trash2 size={14} /></span>
+									<span class="flex w-full items-center justify-between gap-2"
+										><span>{m['issue.remove_parent']()}</span><Trash2 size={14} /></span
+									>
 								</ContextMenu.Item>
 							</ContextMenu.Content>
 						</ContextMenu.Root>
@@ -992,7 +1212,9 @@
 							onclick={openCreateSubIssueDialog}
 							class="flex items-center gap-2 text-xs text-[var(--color-text-tertiary)] transition-colors hover:text-[var(--color-text-secondary)]"
 						>
-							<span class="flex h-6 w-6 items-center justify-center rounded-full border border-[var(--app-border)] bg-[var(--color-bg-secondary)]">
+							<span
+								class="flex h-6 w-6 items-center justify-center rounded-full border border-[var(--app-border)] bg-[var(--color-bg-secondary)]"
+							>
 								<Plus size={12} />
 							</span>
 							{m['issue.add_sub_issue']()}
@@ -1000,10 +1222,15 @@
 					{/if}
 				</div>
 
-			<!-- Relations -->
-			<div class="mt-2">
-				<IssueRelations {slug} identifier={issue.identifier} bind:dialogOpen={relationDialogOpen} bind:dialogType={relationType} />
-			</div>
+				<!-- Relations -->
+				<div class="mt-2">
+					<IssueRelations
+						{slug}
+						identifier={issue.identifier}
+						bind:dialogOpen={relationDialogOpen}
+						bind:dialogType={relationType}
+					/>
+				</div>
 
 				<!-- GitHub Activity -->
 				<div class="mt-2">
@@ -1012,19 +1239,26 @@
 
 				<!-- Activity -->
 				<div class="mt-6 border-t border-[var(--app-border)] pt-4">
-					<h3 class="text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wide mb-3">{m['issue.activity']()}</h3>
+					<h3 class="text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wide mb-3">
+						{m['issue.activity']()}
+					</h3>
 
 					{#if loaded}
 						{@const GROUP_THRESHOLD_MS = 5000}
-						{@const historyGroups = [...history].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()).reduce<Array<{ items: IssueHistory[]; time: string }>>((acc, h) => {
-							const prev = acc[acc.length - 1];
-							if (prev && Math.abs(new Date(h.created_at).getTime() - new Date(prev.time).getTime()) < GROUP_THRESHOLD_MS) {
-								prev.items.push(h);
-							} else {
-								acc.push({ items: [h], time: h.created_at });
-							}
-							return acc;
-						}, [])}
+						{@const historyGroups = [...history]
+							.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+							.reduce<Array<{ items: IssueHistory[]; time: string }>>((acc, h) => {
+								const prev = acc[acc.length - 1];
+								if (
+									prev &&
+									Math.abs(new Date(h.created_at).getTime() - new Date(prev.time).getTime()) < GROUP_THRESHOLD_MS
+								) {
+									prev.items.push(h);
+								} else {
+									acc.push({ items: [h], time: h.created_at });
+								}
+								return acc;
+							}, [])}
 
 						{@const RECENT_COUNT = 3}
 						{@const visibleHistory = showAllActivity ? historyGroups : historyGroups.slice(-RECENT_COUNT)}
@@ -1037,7 +1271,7 @@
 
 							{#if hiddenCount > 0}
 								<button
-									onclick={() => showAllActivity = true}
+									onclick={() => (showAllActivity = true)}
 									class="relative z-10 mb-2 rounded-full border border-[var(--app-border)] bg-[var(--color-bg)] px-2.5 py-1 text-xs text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-secondary)] transition-colors"
 								>
 									{m['issue.show_earlier']({ n: hiddenCount })}
@@ -1050,15 +1284,33 @@
 									{@const firstField = items[0].field}
 									{@const IconComponent = items.length > 1 ? Layers : historyIcon(firstField)}
 									{@const iconColor = items.length > 1 ? 'text-[var(--color-text-tertiary)]' : historyColor(firstField)}
-									{@const textFields = [...new Set(items.filter(c => c.field === 'title' || c.field === 'description').map(c => c.field))]}
-									{@const valueItems = items.filter((c, i, arr) => c.field !== 'title' && c.field !== 'description' && arr.findIndex(x => x.field === c.field) === i)}
+									{@const textFields = [
+										...new Set(
+											items.filter((c) => c.field === 'title' || c.field === 'description').map((c) => c.field)
+										)
+									]}
+									{@const valueItems = items.filter(
+										(c, i, arr) =>
+											c.field !== 'title' &&
+											c.field !== 'description' &&
+											arr.findIndex((x) => x.field === c.field) === i
+									)}
 									<div class="relative flex items-center gap-3 pb-2.5">
-										<div class="relative z-10 flex h-5 w-5 shrink-0 items-center justify-center ring-2 ring-[var(--color-bg)] rounded-full bg-[var(--color-bg)] {iconColor}">
+										<div
+											class="relative z-10 flex h-5 w-5 shrink-0 items-center justify-center ring-2 ring-[var(--color-bg)] rounded-full bg-[var(--color-bg)] {iconColor}"
+										>
 											<IconComponent size={12} />
 										</div>
-										<div class="flex items-center gap-1.5 text-xs text-[var(--color-text-tertiary)] min-w-0 overflow-hidden">
+										<div
+											class="flex items-center gap-1.5 text-xs text-[var(--color-text-tertiary)] min-w-0 overflow-hidden"
+										>
 											{#if textFields.length > 0}
-												<span>{m['issue.updated']()} <strong class="text-[var(--color-text-secondary)]">{textFields.map(f => historyFieldLabel(f)).join(', ')}</strong></span>
+												<span
+													>{m['issue.updated']()}
+													<strong class="text-[var(--color-text-secondary)]"
+														>{textFields.map((f) => historyFieldLabel(f)).join(', ')}</strong
+													></span
+												>
 												{#if valueItems.length > 0}<span class="text-[var(--app-border)]">|</span>{/if}
 											{/if}
 											{#each valueItems as change, idx}
@@ -1067,16 +1319,28 @@
 												<span>&rarr;</span>
 												{#if change.field === 'labels' && change.new_value}
 													{#each change.new_value.split(', ') as labelName}
-														{@const label = labels.find(l => l.name === labelName)}
-														<code class="shrink-0 inline-flex items-center gap-1 rounded bg-[var(--color-bg-tertiary)] px-1 py-0.5 text-[11px] text-[var(--color-text-secondary)]">
-															<span class="inline-block h-2 w-2 rounded-full shrink-0" style="background-color: {label?.color ?? 'var(--color-text-tertiary)'}"></span>
+														{@const label = labels.find((l) => l.name === labelName)}
+														<code
+															class="shrink-0 inline-flex items-center gap-1 rounded bg-[var(--color-bg-tertiary)] px-1 py-0.5 text-[11px] text-[var(--color-text-secondary)]"
+														>
+															<span
+																class="inline-block h-2 w-2 rounded-full shrink-0"
+																style="background-color: {label?.color ?? 'var(--color-text-tertiary)'}"
+															></span>
 															{labelName}
 														</code>
 													{/each}
 												{:else if change.field === 'assignee' || change.field === 'assignee_id' || change.field === 'assignees'}
-													<HistoryAssignees value={change.new_value} displayValue={change.new_display_value} {members} />
+													<HistoryAssignees
+														value={change.new_value}
+														displayValue={change.new_display_value}
+														{members}
+													/>
 												{:else}
-													<code class="shrink-0 rounded bg-[var(--color-bg-tertiary)] px-1 py-0.5 text-[11px] text-[var(--color-text-secondary)]">{formatHistoryValue(change.field, change.new_value, change.new_display_value)}</code>
+													<code
+														class="shrink-0 rounded bg-[var(--color-bg-tertiary)] px-1 py-0.5 text-[11px] text-[var(--color-text-secondary)]"
+														>{formatHistoryValue(change.field, change.new_value, change.new_display_value)}</code
+													>
 												{/if}
 											{/each}
 											<span>&middot;</span>
@@ -1089,7 +1353,7 @@
 
 						{#if showAllActivity && historyGroups.length > RECENT_COUNT}
 							<button
-								onclick={() => showAllActivity = false}
+								onclick={() => (showAllActivity = false)}
 								class="relative z-10 mt-2 rounded-full border border-[var(--app-border)] bg-[var(--color-bg)] px-2.5 py-1 text-xs text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-secondary)] transition-colors"
 							>
 								{m['issue.show_less']()}
@@ -1110,18 +1374,27 @@
 							<!-- Comment header + body -->
 							<div class="group/comment p-4">
 								<div class="flex items-center gap-2">
-									<div class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--app-accent)] text-[8px] font-medium text-[var(--app-accent-foreground)]">
+									<div
+										class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--app-accent)] text-[8px] font-medium text-[var(--app-accent-foreground)]"
+									>
 										{(comment.user?.name ?? 'U').charAt(0).toUpperCase()}
 									</div>
-									<span class="text-[13px] font-medium text-[var(--color-text-primary)]">{comment.user?.name ?? 'User'}</span>
-									<span class="text-[11px] text-[var(--color-text-tertiary)]">{formatRelativeTime(comment.created_at, getLocale())}</span>
+									<span class="text-[13px] font-medium text-[var(--color-text-primary)]"
+										>{comment.user?.name ?? 'User'}</span
+									>
+									<span class="text-[11px] text-[var(--color-text-tertiary)]"
+										>{formatRelativeTime(comment.created_at, getLocale())}</span
+									>
 									{#if comment.resolved_at}
 										<span class="text-[11px] font-medium text-green-400">{m['issue.resolved']()}</span>
 									{/if}
 									{#if replyViewers.length > 0}
 										<span class="flex items-center gap-1 ml-1">
 											{#each replyViewers as rv (rv.name)}
-												<span class="flex items-center gap-1 text-[10px] font-medium text-white px-1.5 py-0.5 rounded-full" style="background: {rv.color};">
+												<span
+													class="flex items-center gap-1 text-[10px] font-medium text-white px-1.5 py-0.5 rounded-full"
+													style="background: {rv.color};"
+												>
 													{m['issue.typing']({ name: rv.name })}
 												</span>
 											{/each}
@@ -1129,17 +1402,28 @@
 									{/if}
 									<div class="ml-auto opacity-0 group-hover/comment:opacity-100 transition-opacity">
 										{#if comment.resolved_at}
-											<button onclick={() => handleReopen(comment.id)} class="flex items-center gap-1 rounded-full border border-[var(--app-border)] px-2 py-0.5 text-[11px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors" title={m['issue.reopen_thread']()}>
+											<button
+												onclick={() => handleReopen(comment.id)}
+												class="flex items-center gap-1 rounded-full border border-[var(--app-border)] px-2 py-0.5 text-[11px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+												title={m['issue.reopen_thread']()}
+											>
 												{m['issue.reopen_thread']()}
 											</button>
 										{:else}
-											<button onclick={() => handleResolve(comment.id)} class="rounded p-1 text-[var(--color-text-tertiary)] hover:text-green-400 hover:bg-[var(--color-bg-hover)]" title={m['issue.resolve_thread']()}>
+											<button
+												onclick={() => handleResolve(comment.id)}
+												class="rounded p-1 text-[var(--color-text-tertiary)] hover:text-green-400 hover:bg-[var(--color-bg-hover)]"
+												title={m['issue.resolve_thread']()}
+											>
 												<Check size={14} />
 											</button>
 										{/if}
 									</div>
 								</div>
-								<div class="prose prose-invert prose-sm max-w-none mt-2.5 text-[13px] text-[var(--color-text-primary)] [&>p:first-child]:mt-0 [&>p:last-child]:mb-0" use:mentionInteractivity={{ slug, members, issues: issuesState.issues }}>
+								<div
+									class="prose prose-invert prose-sm max-w-none mt-2.5 text-[13px] text-[var(--color-text-primary)] [&>p:first-child]:mt-0 [&>p:last-child]:mb-0"
+									use:mentionInteractivity={{ slug, members, issues: issuesState.issues }}
+								>
 									{@html sanitizeHtml(comment.body ?? '')}
 								</div>
 							</div>
@@ -1149,13 +1433,22 @@
 								{#each comment.replies as reply (reply.id)}
 									<div class="group/reply border-t border-[var(--app-border)] px-4 py-3 pl-4">
 										<div class="flex items-center gap-2">
-											<div class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--app-accent)] text-[8px] font-medium text-[var(--app-accent-foreground)]">
+											<div
+												class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--app-accent)] text-[8px] font-medium text-[var(--app-accent-foreground)]"
+											>
 												{(reply.user?.name ?? 'U').charAt(0).toUpperCase()}
 											</div>
-											<span class="text-[13px] font-medium text-[var(--color-text-primary)]">{reply.user?.name ?? 'User'}</span>
-											<span class="text-[11px] text-[var(--color-text-tertiary)]">{formatRelativeTime(reply.created_at, getLocale())}</span>
+											<span class="text-[13px] font-medium text-[var(--color-text-primary)]"
+												>{reply.user?.name ?? 'User'}</span
+											>
+											<span class="text-[11px] text-[var(--color-text-tertiary)]"
+												>{formatRelativeTime(reply.created_at, getLocale())}</span
+											>
 										</div>
-										<div class="prose prose-invert prose-sm max-w-none mt-2.5 text-[13px] text-[var(--color-text-primary)] [&>p:first-child]:mt-0 [&>p:last-child]:mb-0" use:mentionInteractivity={{ slug, members, issues: issuesState.issues }}>
+										<div
+											class="prose prose-invert prose-sm max-w-none mt-2.5 text-[13px] text-[var(--color-text-primary)] [&>p:first-child]:mt-0 [&>p:last-child]:mb-0"
+											use:mentionInteractivity={{ slug, members, issues: issuesState.issues }}
+										>
 											{@html sanitizeHtml(reply.body ?? '')}
 										</div>
 									</div>
@@ -1165,7 +1458,9 @@
 							<!-- Reply input (hidden when resolved) -->
 							{#if !comment.resolved_at}
 								<div class="border-t border-[var(--app-border)] px-4 py-3 flex items-start gap-3">
-									<div class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--app-accent)] text-[8px] font-medium text-[var(--app-accent-foreground)]">
+									<div
+										class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--app-accent)] text-[8px] font-medium text-[var(--app-accent-foreground)]"
+									>
 										{(authState.user?.name ?? 'U').charAt(0).toUpperCase()}
 									</div>
 									<div class="min-w-0 flex-1 flex items-end gap-1.5">
@@ -1181,19 +1476,23 @@
 													uploadUrl={imageUploadUrl}
 													{members}
 													issues={issuesState.issues}
-													onupdate={(html) => { replyContents[comment.id] = html; replyContents = replyContents; }}
+													onupdate={(html) => {
+														replyContents[comment.id] = html;
+														replyContents = replyContents;
+													}}
 													onsubmit={() => handleReply(comment.id)}
 													remoteCursors={getRemoteCursors(`reply-${comment.id}`)}
 													onfocus={() => presenceState.sendFocus(issue.id, `reply-${comment.id}`, 0)}
 													onblur={() => presenceState.sendFocusLeave(issue.id)}
-													oncursorchange={(pos, anchor) => presenceState.sendFocus(issue.id, `reply-${comment.id}`, pos, anchor)}
+													oncursorchange={(pos, anchor) =>
+														presenceState.sendFocus(issue.id, `reply-${comment.id}`, pos, anchor)}
 												/>
 											{/key}
 										</div>
 										<div class="flex shrink-0 items-center gap-1.5">
 											<button
 												onclick={() => handleReply(comment.id)}
-												disabled={!(replyContents[comment.id]?.trim()) || replyContents[comment.id] === '<p></p>'}
+												disabled={!replyContents[comment.id]?.trim() || replyContents[comment.id] === '<p></p>'}
 												class="rounded-full bg-[var(--app-accent)] p-1.5 text-[var(--app-accent-foreground)] hover:bg-[var(--app-accent-hover)] disabled:opacity-30 transition-colors"
 												title={m['issue.send']()}
 											>
@@ -1210,32 +1509,37 @@
 					{#if newCommentViewers.length > 0}
 						<div class="flex items-center gap-1.5 px-1">
 							{#each newCommentViewers as nv (nv.name)}
-								<span class="flex items-center gap-1 text-[10px] font-medium text-white px-1.5 py-0.5 rounded-full" style="background: {nv.color};">
+								<span
+									class="flex items-center gap-1 text-[10px] font-medium text-white px-1.5 py-0.5 rounded-full"
+									style="background: {nv.color};"
+								>
 									{m['issue.typing']({ name: nv.name })}
 								</span>
 							{/each}
 						</div>
 					{/if}
-					<div class="flex items-end gap-1.5 rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-secondary)] focus-within:border-[var(--color-text-tertiary)] transition-colors p-3">
+					<div
+						class="flex items-end gap-1.5 rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-secondary)] focus-within:border-[var(--color-text-tertiary)] transition-colors p-3"
+					>
 						<div class="min-w-0 flex-1 my-auto">
 							{#key commentVersion}
-							<RichEditor
-								content=""
-								workspaceSlug={slug}
-								placeholder={m['issue.leave_comment']()}
-								minimal={true}
-								borderless={true}
-								bubbleMenu={true}
-								uploadUrl={imageUploadUrl}
-								{members}
-								issues={issuesState.issues}
-								onupdate={(html) => newComment = html}
-								onsubmit={handleAddComment}
-								remoteCursors={getRemoteCursors('new-comment')}
-								onfocus={() => presenceState.sendFocus(issue.id, 'new-comment', 0)}
-								onblur={() => presenceState.sendFocusLeave(issue.id)}
-								oncursorchange={(pos, anchor) => presenceState.sendFocus(issue.id, 'new-comment', pos, anchor)}
-							/>
+								<RichEditor
+									content=""
+									workspaceSlug={slug}
+									placeholder={m['issue.leave_comment']()}
+									minimal={true}
+									borderless={true}
+									bubbleMenu={true}
+									uploadUrl={imageUploadUrl}
+									{members}
+									issues={issuesState.issues}
+									onupdate={(html) => (newComment = html)}
+									onsubmit={handleAddComment}
+									remoteCursors={getRemoteCursors('new-comment')}
+									onfocus={() => presenceState.sendFocus(issue.id, 'new-comment', 0)}
+									onblur={() => presenceState.sendFocusLeave(issue.id)}
+									oncursorchange={(pos, anchor) => presenceState.sendFocus(issue.id, 'new-comment', pos, anchor)}
+								/>
 							{/key}
 						</div>
 						<div class="flex shrink-0 items-center gap-1.5">
@@ -1254,20 +1558,24 @@
 		</div>
 
 		<!-- Right column — card-based sidebar -->
-		<div class="w-full space-y-2 border-t border-[var(--app-border)] p-3 md:w-[300px] md:shrink-0 md:overflow-y-auto md:border-t-0">
+		<div
+			class="w-full space-y-2 border-t border-[var(--app-border)] p-3 md:w-[300px] md:shrink-0 md:overflow-y-auto md:border-t-0"
+		>
 			<!-- Details card -->
 			<div class="rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-secondary)]">
 				<button
-					onclick={() => detailsExpanded = !detailsExpanded}
+					onclick={() => (detailsExpanded = !detailsExpanded)}
 					class="flex w-full items-center gap-1.5 px-3 py-2.5 text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"
 				>
 					<ChevronRight size={12} class="transition-transform {detailsExpanded ? 'rotate-90' : ''}" />
-						{m['issue.details']()}
+					{m['issue.details']()}
 				</button>
 				{#if detailsExpanded}
 					<div class="px-1.5 pb-2 space-y-0.5">
 						<!-- Status row -->
-						<div class="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-[var(--color-bg-hover)] transition-colors">
+						<div
+							class="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-[var(--color-bg-hover)] transition-colors"
+						>
 							<span class="w-20 shrink-0 text-xs text-[var(--color-text-tertiary)]">{m['issue.status']()}</span>
 							<StatusSelector
 								bind:open={statusOpen}
@@ -1276,9 +1584,14 @@
 								onchange={(id) => updateField('status_id', id)}
 								shortcutKey="S"
 							>
-								{#snippet trigger()}
-									<button class="flex items-center gap-1.5 text-sm text-[var(--color-text-primary)]">
-										<IssueStatusIcon status={issue.status} category={issue.status_info?.category} color={issue.status_info?.color} size={14} />
+								{#snippet trigger(props)}
+									<button {...props} class="flex items-center gap-1.5 text-sm text-[var(--color-text-primary)]">
+										<IssueStatusIcon
+											status={issue.status}
+											category={issue.status_info?.category}
+											color={issue.status_info?.color}
+											size={14}
+										/>
 										{issue.status_info?.name ?? issue.status}
 									</button>
 								{/snippet}
@@ -1286,7 +1599,9 @@
 						</div>
 
 						<!-- Priority row -->
-						<div class="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-[var(--color-bg-hover)] transition-colors">
+						<div
+							class="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-[var(--color-bg-hover)] transition-colors"
+						>
 							<span class="w-20 shrink-0 text-xs text-[var(--color-text-tertiary)]">{m['issue.priority']()}</span>
 							<PrioritySelector
 								bind:open={priorityOpen}
@@ -1294,8 +1609,8 @@
 								onchange={(p) => updateField('priority', p)}
 								shortcutKey="P"
 							>
-								{#snippet trigger()}
-									<button class="flex items-center gap-1.5 text-sm text-[var(--color-text-primary)]">
+								{#snippet trigger(props)}
+									<button {...props} class="flex items-center gap-1.5 text-sm text-[var(--color-text-primary)]">
 										<IssuePriorityIcon priority={issue.priority} size={14} />
 										{getPriorityLabel(issue.priority)}
 									</button>
@@ -1304,48 +1619,68 @@
 						</div>
 
 						<!-- Assignee row -->
-						<div class="flex items-start gap-3 rounded-md px-2 py-1.5 hover:bg-[var(--color-bg-hover)] transition-colors">
-							<span class="w-20 shrink-0 text-xs text-[var(--color-text-tertiary)] pt-0.5">{m['issue.assignee']()}</span>
+						<div
+							class="flex items-start gap-3 rounded-md px-2 py-1.5 hover:bg-[var(--color-bg-hover)] transition-colors"
+						>
+							<span class="w-20 shrink-0 text-xs text-[var(--color-text-tertiary)] pt-0.5">{m['issue.assignee']()}</span
+							>
 							<div class="flex-1">
 								<AssigneeSelector
 									bind:open={assigneeOpen}
 									{members}
-									value={(issue.assignees ?? []).map(a => a.id)}
+									value={(issue.assignees ?? []).map((a) => a.id)}
 									shortcutKey="A"
 									onchange={async (userId) => {
-										const currentIds = (issue.assignees ?? []).map(a => a.id);
+										const currentIds = (issue.assignees ?? []).map((a) => a.id);
 										const newIds = currentIds.includes(userId)
-											? currentIds.filter(id => id !== userId)
+											? currentIds.filter((id) => id !== userId)
 											: [...currentIds, userId];
 										try {
 											await issuesState.update(slug, issue.identifier, { assignee_ids: newIds });
 											await refreshIssue();
-										} catch { appToast.error(m['issue.toast.failed_assignees']()); }
+										} catch {
+											appToast.error(m['issue.toast.failed_assignees']());
+										}
 									}}
 								>
-									{#snippet trigger()}
-										<button class="flex min-h-5 flex-wrap items-center gap-1 rounded-md text-left transition-colors">
+									{#snippet trigger(props)}
+										<button
+											{...props}
+											class="flex min-h-5 flex-wrap items-center gap-1 rounded-md text-left transition-colors"
+										>
 											{#if issue.assignees && issue.assignees.length > 0}
 												{#each issue.assignees as a}
-													<span class="flex items-center gap-1.5 rounded-full bg-[var(--color-bg-tertiary)] px-2 py-0.5 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]">
-														<div class="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--app-accent)] text-[8px] text-[var(--app-accent-foreground)]">
+													<span
+														class="flex items-center gap-1.5 rounded-full bg-[var(--color-bg-tertiary)] px-2 py-0.5 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]"
+													>
+														<div
+															class="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--app-accent)] text-[8px] text-[var(--app-accent-foreground)]"
+														>
 															{(a.name ?? 'U').charAt(0).toUpperCase()}
 														</div>
 														{a.name}
 													</span>
 												{/each}
-												<span class="flex h-5 w-5 items-center justify-center rounded-full text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors">
+												<span
+													class="flex h-5 w-5 items-center justify-center rounded-full text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"
+												>
 													<Plus size={14} />
 												</span>
 											{:else if issue.assignee}
-												<span class="flex items-center gap-1.5 rounded-full px-2 py-0.5 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]">
-													<div class="flex h-4 w-4 items-center justify-center rounded-full bg-[var(--app-accent)] text-[8px] text-[var(--app-accent-foreground)]">
+												<span
+													class="flex items-center gap-1.5 rounded-full px-2 py-0.5 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]"
+												>
+													<div
+														class="flex h-4 w-4 items-center justify-center rounded-full bg-[var(--app-accent)] text-[8px] text-[var(--app-accent-foreground)]"
+													>
 														{(issue.assignee.name ?? 'U').charAt(0).toUpperCase()}
 													</div>
 													{issue.assignee.name}
 												</span>
 											{:else}
-												<span class="text-sm text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">{m['issue.assignee']()}</span>
+												<span class="text-sm text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
+													>{m['issue.assignee']()}</span
+												>
 											{/if}
 										</button>
 									{/snippet}
@@ -1354,7 +1689,9 @@
 						</div>
 
 						<!-- Due date row -->
-						<div class="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-[var(--color-bg-hover)] transition-colors">
+						<div
+							class="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-[var(--color-bg-hover)] transition-colors"
+						>
 							<span class="w-20 shrink-0 text-xs text-[var(--color-text-tertiary)]">{m['issue.due_date']()}</span>
 							<DatePickerPopover
 								value={issue.due_date}
@@ -1364,7 +1701,6 @@
 								dueDateMode
 							/>
 						</div>
-
 					</div>
 				{/if}
 			</div>
@@ -1372,18 +1708,21 @@
 			<!-- Labels card -->
 			<div class="rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-secondary)]">
 				<button
-					onclick={() => labelsExpanded = !labelsExpanded}
+					onclick={() => (labelsExpanded = !labelsExpanded)}
 					class="flex w-full items-center gap-1.5 px-3 py-2.5 text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"
 				>
 					<ChevronRight size={12} class="transition-transform {labelsExpanded ? 'rotate-90' : ''}" />
-						{m['issue.labels']()}
+					{m['issue.labels']()}
 				</button>
 				{#if labelsExpanded}
 					<div class="px-3 pb-3">
 						<div class="flex flex-wrap items-center gap-1">
 							{#if issue.labels && issue.labels.length > 0}
 								{#each issue.labels as lbl}
-									<button onclick={() => labelsOpen = true} class="flex items-center gap-1.5 rounded-full bg-[var(--color-bg-tertiary)] px-2.5 py-1 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors cursor-pointer">
+									<button
+										onclick={() => (labelsOpen = true)}
+										class="flex items-center gap-1.5 rounded-full bg-[var(--color-bg-tertiary)] px-2.5 py-1 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors cursor-pointer"
+									>
 										<span class="h-2.5 w-2.5 rounded-full shrink-0" style="background-color: {lbl.color}"></span>
 										{lbl.name}
 									</button>
@@ -1392,28 +1731,35 @@
 							<LabelSelector
 								bind:open={labelsOpen}
 								{labels}
-								value={(issue.labels ?? []).map(l => l.id)}
+								value={(issue.labels ?? []).map((l) => l.id)}
 								shortcutKey="L"
 								oncreated={(label) => (labels = [label, ...labels.filter((existing) => existing.id !== label.id)])}
 								{slug}
 								onchange={async (labelId) => {
-									const currentIds = (issue.labels ?? []).map(l => l.id);
+									const currentIds = (issue.labels ?? []).map((l) => l.id);
 									const newIds = currentIds.includes(labelId)
-										? currentIds.filter(id => id !== labelId)
+										? currentIds.filter((id) => id !== labelId)
 										: [...currentIds, labelId];
 									try {
 										await issuesState.update(slug, issue.identifier, { label_ids: newIds });
 										await refreshIssue();
-									} catch { appToast.error(m['issue.toast.failed_labels']()); }
+									} catch {
+										appToast.error(m['issue.toast.failed_labels']());
+									}
 								}}
 							>
-								{#snippet trigger()}
+								{#snippet trigger(props)}
 									{#if issue.labels && issue.labels.length > 0}
-										<button class="flex h-6 w-6 items-center justify-center rounded-full hover:bg-[var(--color-bg-hover)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors">
+										<button
+											{...props}
+											class="flex h-6 w-6 items-center justify-center rounded-full hover:bg-[var(--color-bg-hover)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"
+										>
 											<Plus size={14} />
 										</button>
 									{:else}
-										<button class="flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-secondary)] transition-colors">
+										<button
+											class="flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-secondary)] transition-colors"
+										>
 											<Plus size={12} />
 											{m['issue.add_label']()}
 										</button>
@@ -1428,11 +1774,11 @@
 			<!-- Project card -->
 			<div class="rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-secondary)]">
 				<button
-					onclick={() => projectExpanded = !projectExpanded}
+					onclick={() => (projectExpanded = !projectExpanded)}
 					class="flex w-full items-center gap-1.5 px-3 py-2.5 text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"
 				>
 					<ChevronRight size={12} class="transition-transform {projectExpanded ? 'rotate-90' : ''}" />
-						{m['issue.project']()}
+					{m['issue.project']()}
 				</button>
 				{#if projectExpanded}
 					<div class="px-3 pb-3">
@@ -1440,16 +1786,24 @@
 							bind:open={projectOpen}
 							{projects}
 							value={issue.project_id}
-							onchange={(id) => { updateField('project_id', id ?? ''); if (!id && issue.cycle_id) updateField('cycle_id', ''); }}
+							onchange={(id) => {
+								updateField('project_id', id ?? '');
+								if (!id && issue.cycle_id) updateField('cycle_id', '');
+							}}
 						>
-							{#snippet trigger()}
+							{#snippet trigger(props)}
 								{#if issueProject}
-									<button class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors w-full text-left">
+									<button
+										{...props}
+										class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors w-full text-left"
+									>
 										<FolderKanban size={14} class="text-[var(--color-text-tertiary)] shrink-0" />
 										<span class="truncate">{issueProject.name}</span>
 									</button>
 								{:else}
-									<button class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] transition-colors">
+									<button
+										class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+									>
 										<FolderKanban size={14} />
 										{m['issue.add_project']()}
 									</button>
@@ -1457,31 +1811,51 @@
 							{/snippet}
 						</ProjectSelector>
 						{#if issueProject?.description}
-							<p class="mt-1 px-2 text-xs text-[var(--color-text-tertiary)] leading-relaxed">{issueProject.description}</p>
+							<p class="mt-1 px-2 text-xs text-[var(--color-text-tertiary)] leading-relaxed">
+								{issueProject.description}
+							</p>
 						{/if}
 
 						<!-- Cycle as sub-item of project (only when project is selected) -->
 						{#if issueProject}
-						<div class="ml-3 flex">
-							<svg class="shrink-0 mr-1" width="14" height="100%" viewBox="0 0 14 28" preserveAspectRatio="xMinYMin" fill="none">
-								<path d="M1 0 L1 18 C1 23, 5 23, 9 23 L14 23" stroke="var(--color-text-tertiary)" stroke-width="1.5" opacity="0.4" fill="none"/>
-							</svg>
-							<div class="flex-1 min-w-0 mt-2.5">
-								<CycleSelector
-									bind:open={cycleOpen}
-									{cycles}
-									value={issue.cycle_id}
-									onchange={(id) => updateField('cycle_id', id ?? '')}
+							<div class="ml-3 flex">
+								<svg
+									class="shrink-0 mr-1"
+									width="14"
+									height="100%"
+									viewBox="0 0 14 28"
+									preserveAspectRatio="xMinYMin"
+									fill="none"
 								>
-									{#snippet trigger()}
-										<button class="flex items-center gap-2 rounded-md px-2 py-1 text-xs hover:bg-[var(--color-bg-hover)] transition-colors {issueCycle ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-tertiary)]'}">
-											<RefreshCw size={12} class="shrink-0 text-[var(--color-text-tertiary)]" />
-											{issueCycle ? issueCycle.name : m['issue.no_cycle']()}
-										</button>
-									{/snippet}
-								</CycleSelector>
+									<path
+										d="M1 0 L1 18 C1 23, 5 23, 9 23 L14 23"
+										stroke="var(--color-text-tertiary)"
+										stroke-width="1.5"
+										opacity="0.4"
+										fill="none"
+									/>
+								</svg>
+								<div class="flex-1 min-w-0 mt-2.5">
+									<CycleSelector
+										bind:open={cycleOpen}
+										{cycles}
+										value={issue.cycle_id}
+										onchange={(id) => updateField('cycle_id', id ?? '')}
+									>
+										{#snippet trigger(props)}
+											<button
+												{...props}
+												class="flex items-center gap-2 rounded-md px-2 py-1 text-xs hover:bg-[var(--color-bg-hover)] transition-colors {issueCycle
+													? 'text-[var(--color-text-primary)]'
+													: 'text-[var(--color-text-tertiary)]'}"
+											>
+												<RefreshCw size={12} class="shrink-0 text-[var(--color-text-tertiary)]" />
+												{issueCycle ? issueCycle.name : m['issue.no_cycle']()}
+											</button>
+										{/snippet}
+									</CycleSelector>
+								</div>
 							</div>
-						</div>
 						{/if}
 					</div>
 				{/if}
@@ -1508,13 +1882,17 @@
 	onbulkcreate={async (titles) => {
 		if (!createDialogParentIssue) return;
 		try {
-			const created = await bulkCreateSubIssues(slug, createDialogParentIssue.identifier, titles.map((title) => ({ title })));
+			const created = await bulkCreateSubIssues(
+				slug,
+				createDialogParentIssue.identifier,
+				titles.map((title) => ({ title }))
+			);
 			appToast.success(m['issue.toast.created_sub_issues']({ n: created.length }));
 			await refreshIssue();
 			createIssueTitle = '';
 			createDialogParentIssue = null;
 		} catch (err: any) {
-			appToast.apiError(err, m['issue.toast.failed_sub_issues']());
+			throw err;
 		}
 	}}
 	onsubmit={async (req) => {
@@ -1528,7 +1906,7 @@
 			createIssueTitle = '';
 			createDialogParentIssue = null;
 		} catch (err: any) {
-			appToast.apiError(err, m['issue.toast.failed_create_issue']());
+			throw err;
 		}
 	}}
 />
@@ -1556,7 +1934,12 @@
 	</AlertDialog.Content>
 </AlertDialog.Root>
 
-<CreateMachineDialog bind:open={issueActionsCreateOpen} {slug} {issue} oncreated={(machine) => goto(`/${slug}/machines/${machine.id}`)} />
+<CreateMachineDialog
+	bind:open={issueActionsCreateOpen}
+	{slug}
+	{issue}
+	oncreated={(machine) => goto(`/${slug}/machines/${machine.id}`)}
+/>
 <IssueRepositoryDialog bind:open={issueActionsRepositoryOpen} {slug} {issue} />
 <IssueMachinePickerDialog
 	bind:open={issueActionsMachinePickerOpen}

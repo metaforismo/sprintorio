@@ -22,7 +22,7 @@ go test ./... -race -count=1 -coverprofile=coverage.out -covermode=atomic
 go tool cover -func=coverage.out
 ```
 
-The suite checks persisted plans, workspace isolation, concurrent versioned saves, migration behavior, and workspace export/import. Import keeps local milestone/test IDs intact and remaps application asset URLs. Version conflicts return HTTP 409 instead of silently overwriting another save.
+The suite checks persisted plans, workspace isolation, concurrent versioned saves, project metadata/date validation, nullable updates, team/status rollback, nested team-resource scope, migration behavior, and workspace export/import. Import keeps local milestone/test IDs intact and remaps application asset URLs. Version conflicts return HTTP 409 instead of silently overwriting another save.
 
 ## Browser checks
 
@@ -35,7 +35,7 @@ npm run validate
 npm run test:responsive
 ```
 
-The UI browser suite mocks API responses to exercise forms, permissions, conflict recovery, keyboard flows, and readiness states. Backend integration tests separately exercise actual PostgreSQL persistence. Mocked browser fixtures and screenshots are examples; they are not live customer data or proof of a full application deployment.
+The UI browser suite mocks API responses to exercise forms, failed-draft retry, permissions, conflict recovery, selector keyboard/focus behavior, bounded session recovery, project navigation, filtered test deletion, and readiness states. Backend integration tests separately exercise actual PostgreSQL persistence. Mocked browser fixtures and screenshots are examples; they are not live customer data or proof of a full application deployment.
 
 For an already installed Chrome browser, use `PLAYWRIGHT_CHANNEL=chrome` with the browser-test commands.
 
@@ -59,3 +59,23 @@ These records do not execute tests or authorize deployment. Automated tests run 
 ## CI
 
 GitHub Actions run identity checks, Go race/coverage tests with PostgreSQL, frontend checks and Playwright tests, and marketing-site build/SEO/responsive checks. A separate container integration job exercises Dev Machines on a Linux host with XFS project quotas. That runtime cannot be verified by ordinary frontend or Go unit tests.
+
+## IDE transport compatibility
+
+The IDE build executes `devmachine/ide/tests/ftp-compatibility.mjs` against its
+installed code-server dependency tree on Node 22. It checks actual get-uri FTP
+downloads using EPSV/PASV, metadata, cache, missing files and MLSD fallback. It
+also checks that an advertised separate data host is refused before a transfer.
+This restriction is the default in basic-ftp 6; it is not disabled by the patch.
+
+To repeat the smoke inside a built IDE image:
+
+```sh
+docker run --rm --entrypoint node sprintorio/dev-machine-ide:0.1.0 \
+  /usr/local/lib/sprintorio-ftp-compatibility.mjs /usr/lib/code-server
+```
+
+The script header documents an optional implicit FTPS fixture with a short-lived
+certificate. Trust is passed to that client only; there is no global trust change
+or certificate-validation bypass. Explicit FTPS and cloud host deployment are
+separate checks and are not covered by this smoke.

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import * as Dialog from '$lib/components/ui/dialog';
+	import { appToast } from '$lib/features/toast/toast';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
@@ -19,9 +20,16 @@
 		open: boolean;
 		cycles: Cycle[];
 		nextNumber: number;
-		onsubmit: (data: { name: string; description?: string; goals?: string; start_date: string; end_date: string }) => void;
+		onsubmit: (data: {
+			name: string;
+			description?: string;
+			goals?: string;
+			start_date: string;
+			end_date: string;
+		}) => void | Promise<void>;
 	} = $props();
 
+	let submitting = $state(false);
 	let name = $state('');
 	let description = $state('');
 	let goals = $state('');
@@ -30,7 +38,7 @@
 
 	$effect(() => {
 		if (open) {
-			name = m['cycles.title']() + ' ' + nextNumber;
+			name = m['cycles.create.default_name']({ number: nextNumber });
 			description = '';
 			goals = '';
 			startDate = '';
@@ -48,74 +56,120 @@
 			});
 	}
 
-	function handleSubmit(e: Event) {
+	async function handleSubmit(e: Event) {
 		e.preventDefault();
-		if (!name.trim() || !startDate || !endDate) return;
-		onsubmit({
-			name: name.trim(),
-			description: description.trim() || undefined,
-			goals: goals.trim() || undefined,
-			start_date: startDate,
-			end_date: endDate
-		});
-		open = false;
+		if (submitting || !name.trim() || !startDate || !endDate) return;
+		submitting = true;
+		try {
+			await onsubmit({
+				name: name.trim(),
+				description: description.trim() || undefined,
+				goals: goals.trim() || undefined,
+				start_date: startDate,
+				end_date: endDate
+			});
+			open = false;
+		} catch (error) {
+			appToast.apiError(error, m['cycles.toast.failed_create']());
+		} finally {
+			submitting = false;
+		}
 	}
 </script>
 
-<Dialog.Root bind:open>
-	<Dialog.Content class="sm:max-w-[420px] border-[var(--app-border)] bg-[var(--color-bg-secondary)] p-0 overflow-hidden rounded-xl">
-		<form onsubmit={handleSubmit}>
-			<div class="px-5 pt-5 pb-4 space-y-4">
-				<div>
-					<h2 class="text-base font-semibold text-[var(--color-text-primary)]">{m['cycles.create.title']()}</h2>
-					<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">{m['cycles.create.description']()}</p>
+<Dialog.Root
+	{open}
+	onOpenChange={(value) => {
+		if (!submitting) open = value;
+	}}
+>
+	<Dialog.Content
+		showCloseButton={!submitting}
+		onEscapeKeydown={(event) => {
+			if (submitting) event.preventDefault();
+		}}
+		onInteractOutside={(event) => {
+			if (submitting) event.preventDefault();
+		}}
+		class="sm:max-w-[420px] border-[var(--app-border)] bg-[var(--color-bg-secondary)] p-0 overflow-hidden rounded-xl"
+	>
+		<form onsubmit={handleSubmit} aria-busy={submitting}>
+			<fieldset disabled={submitting} class="min-w-0">
+				<div class="px-5 pt-5 pb-4 space-y-4">
+					<div>
+						<Dialog.Title class="text-base font-semibold text-[var(--color-text-primary)]"
+							>{m['cycles.create.title']()}</Dialog.Title
+						>
+						<Dialog.Description class="mt-0.5 text-xs text-[var(--color-text-tertiary)]"
+							>{m['cycles.create.description']()}</Dialog.Description
+						>
+					</div>
+
+					<div class="space-y-1.5">
+						<Label for="create-name" class="text-xs text-[var(--color-text-secondary)]"
+							>{m['cycles.field.name']()}</Label
+						>
+						<Input
+							id="create-name"
+							bind:value={name}
+							maxlength={100}
+							placeholder={m['cycles.create.name_placeholder']()}
+							required
+							class="bg-[var(--color-bg)] border-[var(--app-border)] text-[var(--color-text-primary)]"
+						/>
+					</div>
+
+					<div class="space-y-1.5">
+						<Label for="create-description" class="text-xs text-[var(--color-text-secondary)]"
+							>{m['cycles.field.description']()}
+							<span class="text-[var(--color-text-tertiary)]">{m['cycles.field.optional']()}</span></Label
+						>
+						<Input
+							id="create-description"
+							bind:value={description}
+							placeholder={m['cycles.create.description_placeholder']()}
+							class="bg-[var(--color-bg)] border-[var(--app-border)] text-[var(--color-text-primary)]"
+						/>
+					</div>
+
+					<div class="space-y-1.5">
+						<Label for="create-goals" class="text-xs text-[var(--color-text-secondary)]"
+							>{m['cycles.goals']()}
+							<span class="text-[var(--color-text-tertiary)]">{m['cycles.field.optional']()}</span></Label
+						>
+						<Textarea
+							id="create-goals"
+							bind:value={goals}
+							placeholder={m['cycles.create.goals_placeholder']()}
+							rows={2}
+							class="bg-[var(--color-bg)] border-[var(--app-border)] text-[var(--color-text-primary)] resize-none text-sm"
+						/>
+					</div>
+
+					<div class="space-y-1.5">
+						<Label class="text-xs text-[var(--color-text-secondary)]">{m['cycles.field.date_range']()}</Label>
+						<DateRangePickerPopover
+							startDate={startDate || null}
+							endDate={endDate || null}
+							onchange={(s, e) => {
+								startDate = s;
+								endDate = e;
+							}}
+							{isDateDisabled}
+							placeholder={m['cycles.select_date_range']()}
+						/>
+					</div>
 				</div>
 
-				<div class="space-y-1.5">
-					<Label class="text-xs text-[var(--color-text-secondary)]">{m['cycles.field.name']()}</Label>
-					<Input
-						bind:value={name}
-						placeholder={m['cycles.create.name_placeholder']()}
-						required
-						class="bg-[var(--color-bg)] border-[var(--app-border)] text-[var(--color-text-primary)]"
-					/>
+				<div class="flex justify-end gap-2 border-t border-[var(--app-border)] px-5 py-3">
+					<Button variant="outline" size="sm" type="button" onclick={() => (open = false)}
+						>{m['common.cancel']()}</Button
+					>
+					<Button size="sm" type="submit" disabled={submitting || !name.trim() || !startDate || !endDate}
+						>{submitting ? m['sidebar.creating']() : m['cycles.create.title']()}</Button
+					>
 				</div>
-
-				<div class="space-y-1.5">
-					<Label class="text-xs text-[var(--color-text-secondary)]">{m['cycles.field.description']()} <span class="text-[var(--color-text-tertiary)]">{m['cycles.field.optional']()}</span></Label>
-					<Input
-						bind:value={description}
-						placeholder={m['cycles.create.description_placeholder']()}
-						class="bg-[var(--color-bg)] border-[var(--app-border)] text-[var(--color-text-primary)]"
-					/>
-				</div>
-
-				<div class="space-y-1.5">
-					<Label class="text-xs text-[var(--color-text-secondary)]">{m['cycles.goals']()} <span class="text-[var(--color-text-tertiary)]">{m['cycles.field.optional']()}</span></Label>
-					<Textarea
-						bind:value={goals}
-						placeholder={m['cycles.create.goals_placeholder']()}
-						rows={2}
-						class="bg-[var(--color-bg)] border-[var(--app-border)] text-[var(--color-text-primary)] resize-none text-sm"
-					/>
-				</div>
-
-				<div class="space-y-1.5">
-					<Label class="text-xs text-[var(--color-text-secondary)]">{m['cycles.field.date_range']()}</Label>
-					<DateRangePickerPopover
-						startDate={startDate || null}
-						endDate={endDate || null}
-						onchange={(s, e) => { startDate = s; endDate = e; }}
-						{isDateDisabled}
-						placeholder={m['cycles.select_date_range']()}
-					/>
-				</div>
-			</div>
-
-			<div class="flex justify-end gap-2 border-t border-[var(--app-border)] px-5 py-3">
-				<Button variant="outline" size="sm" type="button" onclick={() => (open = false)}>{m['common.cancel']()}</Button>
-				<Button size="sm" type="submit" disabled={!name.trim() || !startDate || !endDate}>{m['cycles.create.title']()}</Button>
-			</div>
+			</fieldset>
 		</form>
 	</Dialog.Content>
 </Dialog.Root>

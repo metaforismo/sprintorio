@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { getLocale } from '$lib/paraglide/runtime.js';
+	import { deliveryText } from './delivery-copy';
 	import { beforeNavigate } from '$app/navigation';
 	import { getDeliveryPlan, saveDeliveryPlan } from '$lib/api/delivery-plan';
 	import { getWorkspace } from '$lib/api/workspaces';
@@ -19,6 +21,42 @@
 	let conflict = $state(false);
 	let notice = $state('');
 	let generation = 0;
+	let expandedTests = $state<string[]>([]);
+	let testSearch = $state('');
+	let testFilter = $state('all');
+	const visibleTests = $derived(
+		plan.test_cases.filter(
+			(test) =>
+				(!testSearch.trim() || `${test.title} ${test.steps}`.toLowerCase().includes(testSearch.trim().toLowerCase())) &&
+				(testFilter === 'all' || test.status === testFilter)
+		)
+	);
+	const t = (text: string) => deliveryText(text, getLocale());
+	const testStarters = {
+		blank: null,
+		acceptance: {
+			title: t('Acceptance check'),
+			steps: t(
+				'Use the product as the intended user and complete the main workflow. Replace these steps with your release criteria.'
+			),
+			expected: t('The user completes the workflow and the success metric is met.')
+		},
+		regression: {
+			title: t('Regression check'),
+			steps: t('Repeat a previously working workflow affected by this release. Record the environment and test data.'),
+			expected: t('Existing behavior remains correct and saved data is preserved.')
+		},
+		accessibility: {
+			title: t('Accessibility check'),
+			steps: t(
+				'Complete the main workflow using only the keyboard. Check visible focus, field labels and announcements with a screen reader.'
+			),
+			expected: t(
+				'Every action is reachable, focus stays visible, and controls and errors have clear accessible names.'
+			)
+		}
+	};
+
 	const dirty = $derived(saved !== '' && JSON.stringify(plan) !== saved);
 	const passed = $derived(plan.test_cases.filter((t) => t.status === 'passed').length);
 	const failed = $derived(plan.test_cases.filter((t) => t.status === 'failed').length);
@@ -31,16 +69,16 @@
 	);
 	const readiness = $derived(
 		failed
-			? 'Changes needed'
+			? t('Changes needed')
 			: blocked
-				? 'Testing blocked'
+				? t('Testing blocked')
 				: !plan.test_cases.length
-					? 'No tests recorded'
+					? t('No tests recorded')
 					: pending
-						? 'Testing pending'
+						? t('Testing pending')
 						: !briefComplete || !testDefinitionsComplete || completed < plan.milestones.length
-							? 'Delivery work pending'
-							: 'Ready for review'
+							? t('Delivery work pending')
+							: t('Ready for review')
 	);
 	const fieldClass =
 		'w-full rounded-md border border-[var(--app-border)] bg-[var(--color-bg-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] disabled:opacity-70';
@@ -58,7 +96,7 @@
 			canEdit = hasPermission(workspace.current_user_role as Role, 'project:manage');
 			conflict = false;
 		} catch {
-			if (request === generation) error = 'Could not load the delivery plan. Try again.';
+			if (request === generation) error = t('Could not load the delivery plan. Try again.');
 		} finally {
 			if (request === generation) loading = false;
 		}
@@ -78,7 +116,7 @@
 		};
 	});
 	beforeNavigate(({ cancel }) => {
-		if (dirty && !window.confirm('Leave this project and discard unsaved delivery changes?')) cancel();
+		if (dirty && !window.confirm(t('Leave this project and discard unsaved delivery changes?'))) cancel();
 	});
 	function preventUnload(event: BeforeUnloadEvent) {
 		if (dirty) {
@@ -88,7 +126,7 @@
 	}
 	function cancelChanges() {
 		plan = JSON.parse(saved);
-		error = conflict ? 'Someone saved a newer plan. Reload the latest version before editing again.' : '';
+		error = conflict ? t('Someone saved a newer plan. Reload the latest version before editing again.') : '';
 		notice = '';
 	}
 	function addMilestone() {
@@ -101,12 +139,17 @@
 			testCase.evidence = '';
 		}
 	}
-	function addTest() {
+	function addTest(template: 'blank' | 'acceptance' | 'regression' | 'accessibility' = 'blank') {
+		const id = crypto.randomUUID();
+		expandedTests = [...expandedTests, id];
+		testSearch = '';
+		testFilter = 'all';
+		const starter = testStarters[template];
 		plan.test_cases.push({
-			id: crypto.randomUUID(),
-			title: '',
-			steps: '',
-			expected_result: '',
+			id,
+			title: starter ? t(starter.title) : '',
+			steps: starter ? t(starter.steps) : '',
+			expected_result: starter ? t(starter.expected) : '',
 			status: 'not_run',
 			evidence: ''
 		});
@@ -120,11 +163,11 @@
 		const request = generation;
 		const snapshot = JSON.parse(JSON.stringify(plan)) as DeliveryPlan;
 		if (snapshot.milestones.some((m) => !m.title.trim()) || snapshot.test_cases.some((t) => !t.title.trim())) {
-			error = 'Give every milestone and test case a title before saving.';
+			error = t('Give every milestone and test case a title before saving.');
 			return;
 		}
 		if (snapshot.test_cases.some((t) => (t.status === 'passed' || t.status === 'failed') && !t.evidence.trim())) {
-			error = 'Passed and failed tests need recorded evidence before saving.';
+			error = t('Passed and failed tests need recorded evidence before saving.');
 			return;
 		}
 		saving = true;
@@ -136,14 +179,14 @@
 			plan = result.plan;
 			saved = JSON.stringify(result.plan);
 			version = result.version;
-			notice = 'Delivery plan saved.';
+			notice = t('Delivery plan saved.');
 		} catch (err) {
 			if (request !== generation) return;
 			const code = (err as { error?: { code?: string } })?.error?.code;
 			conflict = !!code && /conflict/i.test(code);
 			error = conflict
-				? 'Someone saved a newer plan. Your edits are still here. Copy anything you want to keep before reloading.'
-				: 'Could not save the delivery plan. Your edits are still here. Try again.';
+				? t('Someone saved a newer plan. Your edits are still here. Copy anything you want to keep before reloading.')
+				: t('Could not save the delivery plan. Your edits are still here. Try again.');
 		} finally {
 			if (request === generation) saving = false;
 		}
@@ -153,125 +196,142 @@
 <svelte:window onbeforeunload={preventUnload} />
 <div class="mx-auto w-full max-w-5xl px-4 py-6 sm:px-8">
 	{#if loading}
-		<p role="status" class="py-12 text-center text-sm text-[var(--color-text-tertiary)]">Loading delivery plan…</p>
+		<p role="status" class="py-12 text-center text-sm text-[var(--color-text-tertiary)]">
+			{t('Loading delivery plan…')}
+		</p>
 	{:else if saved === ''}
 		<div role="alert" class="rounded-lg border border-[var(--app-border)] p-6">
 			<p class="mb-4">{error}</p>
-			<Button variant="outline" onclick={() => load()}>Retry loading</Button>
+			<Button variant="outline" onclick={() => load()}>{t('Retry loading')}</Button>
 		</div>
 	{:else}
-		<form onsubmit={save} class="space-y-6">
+		<form
+			onsubmit={save}
+			oninvalidcapture={(event) => {
+				const details = (event.target as HTMLElement).closest('details');
+				if (details) details.open = true;
+			}}
+			class="space-y-6"
+		>
 			<div class="flex flex-wrap items-start justify-between gap-4">
 				<div>
-					<h1 class="text-xl font-semibold">Product delivery</h1>
+					<h1 class="text-xl font-semibold">{t('Product delivery')}</h1>
 					<p class="mt-1 text-sm text-[var(--color-text-tertiary)]">
-						Define the outcome, track milestones, and record manual test results.
+						{t('Brief, milestones and manual verification.')}
 					</p>
 				</div>
 				<div class="flex flex-wrap items-center gap-2">
-					{#if dirty}<span class="text-xs text-[var(--color-text-tertiary)]">Unsaved changes</span>{/if}
+					{#if dirty}<span class="text-xs text-[var(--color-text-tertiary)]">{t('Unsaved changes')}</span>{/if}
 					{#if canEdit}<Button type="button" variant="outline" disabled={!dirty || saving} onclick={cancelChanges}
-							>Cancel changes</Button
-						><Button type="submit" disabled={!dirty || saving || conflict}>{saving ? 'Saving…' : 'Save plan'}</Button
+							>{t('Cancel changes')}</Button
+						><Button type="submit" disabled={!dirty || saving || conflict}
+							>{saving ? t('Saving…') : t('Save plan')}</Button
 						>{/if}
 				</div>
 			</div>
 			{#if !canEdit}<p class="text-sm text-[var(--color-text-tertiary)]">
-					View only. Workspace owners, admins, and members can edit this plan.
+					{t('View only. Workspace owners, admins, and members can edit this plan.')}
 				</p>{/if}
 			{#if error}<div role="alert" class="rounded-lg border border-[var(--color-error)] p-4 text-sm">
 					<p>{error}</p>
 					{#if conflict}<Button type="button" variant="outline" class="mt-3" onclick={() => load()}
-							>Reload latest and discard my edits</Button
+							>{t('Reload latest and discard my edits')}</Button
 						>{/if}
 				</div>{/if}
 			{#if notice && !dirty}<p role="status" class="text-sm text-[var(--color-text-secondary)]">{notice}</p>{/if}
 			<div class="rounded-xl border border-[var(--app-border)] bg-[var(--color-bg-secondary)] p-5">
 				<div class="flex flex-wrap items-center gap-2 font-medium">
 					<ClipboardCheck size={18} /><span>{readiness}</span>{#if dirty}<span
-							class="text-xs font-normal text-[var(--color-text-tertiary)]">Based on unsaved changes</span
+							class="text-xs font-normal text-[var(--color-text-tertiary)]">{t('Based on unsaved changes')}</span
 						>{/if}
 				</div>
 				<div class="mt-4 grid grid-cols-2 gap-4 text-sm sm:grid-cols-5">
 					<div>
 						<p class="text-lg font-semibold">{completed}/{plan.milestones.length}</p>
-						<p class="text-[var(--color-text-tertiary)]">Milestones done</p>
+						<p class="text-[var(--color-text-tertiary)]">{t('Milestones done')}</p>
 					</div>
 					<div>
 						<p class="text-lg font-semibold">{passed}</p>
-						<p class="text-[var(--color-text-tertiary)]">Passed</p>
+						<p class="text-[var(--color-text-tertiary)]">{t('Passed')}</p>
 					</div>
 					<div>
 						<p class="text-lg font-semibold">{failed}</p>
-						<p class="text-[var(--color-text-tertiary)]">Failed</p>
+						<p class="text-[var(--color-text-tertiary)]">{t('Failed')}</p>
 					</div>
 					<div>
 						<p class="text-lg font-semibold">{blocked}</p>
-						<p class="text-[var(--color-text-tertiary)]">Blocked</p>
+						<p class="text-[var(--color-text-tertiary)]">{t('Blocked')}</p>
 					</div>
 					<div>
 						<p class="text-lg font-semibold">{pending}</p>
-						<p class="text-[var(--color-text-tertiary)]">Not run</p>
+						<p class="text-[var(--color-text-tertiary)]">{t('Not run')}</p>
 					</div>
 				</div>
-				<p class="mt-4 text-xs text-[var(--color-text-tertiary)]">
-					Results are recorded manually. Ready for review means the brief is complete, listed milestones are done, and
-					all tests have steps, expected results, and recorded evidence with every test passed. Release approval is a
-					separate decision.
-				</p>
+				<details class="mt-3 text-xs text-[var(--color-text-tertiary)]">
+					<summary class="cursor-pointer">{t('How readiness works')}</summary>
+					<p class="mt-2">
+						{t(
+							'Ready for review requires a complete brief, finished milestones, and every test passed with steps, expected results and evidence. Release approval remains a separate decision.'
+						)}
+					</p>
+				</details>
 			</div>
-			<fieldset disabled={!canEdit || saving} class="space-y-6">
+			<div class="space-y-6">
 				<section class="rounded-xl border border-[var(--app-border)] p-5">
-					<h2 class="mb-5 flex items-center gap-2 font-medium"><Package size={18} />Product brief</h2>
+					<h2 class="mb-5 flex items-center gap-2 font-medium"><Package size={18} />{t('Product brief')}</h2>
 					<div class="grid gap-4 sm:grid-cols-2">
 						<label class="space-y-1.5 text-sm"
-							><span>Product name</span><input
+							><span>{t('Product name')}</span><input
 								class={fieldClass}
+								disabled={!canEdit || saving}
 								maxlength="200"
 								bind:value={plan.product_name}
-								placeholder="What are you delivering?"
+								placeholder={t('What are you delivering?')}
 							/></label
 						>
 						<label class="space-y-1.5 text-sm"
-							><span>Target release</span><input
+							><span>{t('Target release')}</span><input
 								type="date"
 								class={fieldClass}
+								disabled={!canEdit || saving}
 								bind:value={plan.target_release}
 							/></label
 						>
 						<label class="space-y-1.5 text-sm sm:col-span-2"
-							><span>Objective</span><textarea
+							><span>{t('Objective')}</span><textarea
 								rows="3"
 								class={fieldClass}
+								disabled={!canEdit || saving}
 								maxlength="5000"
 								bind:value={plan.objective}
-								placeholder="The problem this release should solve"
+								placeholder={t('The problem this release should solve')}
 							></textarea></label
 						>
 						<label class="space-y-1.5 text-sm sm:col-span-2"
-							><span>Success metric</span><textarea
+							><span>{t('Success metric')}</span><textarea
 								rows="2"
 								class={fieldClass}
+								disabled={!canEdit || saving}
 								maxlength="2000"
 								bind:value={plan.success_metric}
-								placeholder="How will you know it worked?"
+								placeholder={t('How will you know it worked?')}
 							></textarea></label
 						>
 					</div>
 				</section>
 				<section class="rounded-xl border border-[var(--app-border)] p-5">
 					<div class="mb-4 flex items-center justify-between gap-3">
-						<h2 class="flex flex-wrap items-center gap-2 font-medium"><Flag size={18} />Milestones</h2>
+						<h2 class="flex flex-wrap items-center gap-2 font-medium"><Flag size={18} />{t('Milestones')}</h2>
 						{#if canEdit}<Button
 								type="button"
 								variant="outline"
 								size="sm"
-								disabled={plan.milestones.length >= 200}
-								onclick={addMilestone}><Plus size={14} />Add milestone</Button
+								disabled={saving || plan.milestones.length >= 200}
+								onclick={addMilestone}><Plus size={14} />{t('Add milestone')}</Button
 							>{/if}
 					</div>
 					{#if !plan.milestones.length}<p class="py-4 text-sm text-[var(--color-text-tertiary)]">
-							No milestones yet. Add the checkpoints needed to deliver this product.
+							{t('No milestones yet.')}
 						</p>{/if}
 					<div class="space-y-3">
 						{#each plan.milestones as milestone, i (milestone.id)}
@@ -281,25 +341,35 @@
 								<label class="space-y-1 text-sm"
 									><span>Milestone {i + 1}</span><input
 										class={fieldClass}
+										disabled={!canEdit || saving}
 										required
 										maxlength="300"
 										bind:value={milestone.title}
 									/></label
 								>
 								<label class="space-y-1 text-sm"
-									><span>Due date</span><input type="date" class={fieldClass} bind:value={milestone.due_date} /></label
+									><span>{t('Due date')}</span><input
+										type="date"
+										class={fieldClass}
+										disabled={!canEdit || saving}
+										bind:value={milestone.due_date}
+									/></label
 								>
 								<label class="space-y-1 text-sm"
-									><span>Milestone status</span><select class={fieldClass} bind:value={milestone.status}
-										><option value="planned">Planned</option><option value="in_progress">In progress</option><option
-											value="done">Done</option
-										></select
+									><span>{t('Milestone status')}</span><select
+										class={fieldClass}
+										disabled={!canEdit || saving}
+										bind:value={milestone.status}
+										><option value="planned">{t('Planned')}</option><option value="in_progress"
+											>{t('In progress')}</option
+										><option value="done">{t('Done')}</option></select
 									></label
 								>
 								{#if canEdit}<Button
 										type="button"
 										variant="ghost"
-										aria-label={`Remove milestone ${i + 1}`}
+										disabled={saving}
+										aria-label={`${getLocale() === 'it' ? 'Rimuovi milestone' : 'Remove milestone'} ${i + 1}`}
 										onclick={() => (plan.milestones = plan.milestones.filter((m) => m.id !== milestone.id))}
 										><Trash2 size={16} /></Button
 									>{/if}
@@ -309,87 +379,154 @@
 				</section>
 				<section class="rounded-xl border border-[var(--app-border)] p-5">
 					<div class="mb-1 flex items-center justify-between gap-3">
-						<h2 class="flex flex-wrap items-center gap-2 font-medium"><CheckCircle2 size={18} />Manual tests</h2>
+						<h2 class="flex flex-wrap items-center gap-2 font-medium"><CheckCircle2 size={18} />{t('Manual tests')}</h2>
 						{#if canEdit}<Button
 								type="button"
 								variant="outline"
 								size="sm"
-								disabled={plan.test_cases.length >= 200}
-								onclick={addTest}><Plus size={14} />Add test case</Button
+								disabled={saving || plan.test_cases.length >= 200}
+								onclick={() => addTest()}><Plus size={14} />{t('Add test case')}</Button
 							>{/if}
 					</div>
 					<p class="mb-5 text-sm text-[var(--color-text-tertiary)]">
-						Run these checks yourself, then record the result and evidence.
+						{t('Record the result and evidence after each manual check.')}
 					</p>
 					{#if !plan.test_cases.length}<p class="py-4 text-sm text-[var(--color-text-tertiary)]">
-							No test cases yet. Delivery readiness cannot be assessed without recorded tests.
+							{t('Add a test case to assess readiness.')}
 						</p>{/if}
+					{#if canEdit}<div class="mb-4 flex flex-wrap gap-2">
+							<span class="self-center text-xs text-[var(--color-text-tertiary)]">{t('Start from a template:')}</span
+							>{#each ['acceptance', 'regression', 'accessibility'] as template}<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									disabled={saving || plan.test_cases.length >= 200}
+									onclick={() => addTest(template as 'acceptance' | 'regression' | 'accessibility')}
+									>{t(
+										template === 'acceptance'
+											? 'Acceptance'
+											: template === 'regression'
+												? 'Regression'
+												: 'Accessibility'
+									)}</Button
+								>{/each}
+						</div>{/if}
+					{#if plan.test_cases.length > 3 || testSearch.trim() || testFilter !== 'all'}<div
+							class="mb-4 grid gap-3 sm:grid-cols-2"
+						>
+							<label class="space-y-1 text-sm"
+								><span>{t('Search tests')}</span><input class={fieldClass} bind:value={testSearch} /></label
+							><label class="space-y-1 text-sm"
+								><span>{t('Filter by result')}</span><select class={fieldClass} bind:value={testFilter}
+									><option value="all">{t('All results')}</option><option value="not_run">{t('Not run')}</option><option
+										value="passed">{t('Passed')}</option
+									><option value="failed">{t('Failed')}</option><option value="blocked">{t('Blocked')}</option></select
+								></label
+							>
+						</div>{/if}
+					{#if plan.test_cases.length && !visibleTests.length}<p class="py-4 text-sm">{t('No matching tests.')}</p>{/if}
 					<div class="space-y-4">
-						{#each plan.test_cases as testCase, i (testCase.id)}
-							<div class="space-y-4 rounded-lg bg-[var(--color-bg-secondary)] p-4">
-								<div class="flex items-end gap-3">
-									<label class="min-w-0 flex-1 space-y-1 text-sm"
-										><span>Test case {i + 1}</span><input
-											class={fieldClass}
-											required
-											maxlength="300"
-											bind:value={testCase.title}
-											oninput={() => invalidateTest(testCase)}
-										/></label
-									>{#if canEdit}<Button
-											type="button"
-											variant="ghost"
-											aria-label={`Remove test case ${i + 1}`}
-											onclick={() => (plan.test_cases = plan.test_cases.filter((t) => t.id !== testCase.id))}
-											><Trash2 size={16} /></Button
-										>{/if}
+						{#each visibleTests as testCase (testCase.id)}
+							{@const i = plan.test_cases.findIndex((test) => test.id === testCase.id)}
+							<details
+								open={plan.test_cases.length === 1 || expandedTests.includes(testCase.id)}
+								class="rounded-lg bg-[var(--color-bg-secondary)] p-4"
+								ontoggle={(event) => {
+									if (event.currentTarget.open) expandedTests = [...new Set([...expandedTests, testCase.id])];
+									else expandedTests = expandedTests.filter((id) => id !== testCase.id);
+								}}
+							>
+								<summary class="cursor-pointer text-sm font-medium"
+									><span>{testCase.title || `${t('Test case')} ${i + 1}`}</span><span
+										class="ml-3 text-xs font-normal text-[var(--color-text-tertiary)]"
+										>{t(
+											testCase.status === 'not_run'
+												? 'Not run'
+												: testCase.status === 'passed'
+													? 'Passed'
+													: testCase.status === 'failed'
+														? 'Failed'
+														: 'Blocked'
+										)}</span
+									></summary
+								>
+								<div class="space-y-4 pt-4">
+									<div class="flex items-end gap-3">
+										<label class="min-w-0 flex-1 space-y-1 text-sm"
+											><span>{t('Test case')} {i + 1}</span><input
+												class={fieldClass}
+												disabled={!canEdit || saving}
+												required
+												maxlength="300"
+												bind:value={testCase.title}
+												oninput={() => invalidateTest(testCase)}
+											/></label
+										>{#if canEdit}<Button
+												type="button"
+												variant="ghost"
+												disabled={saving}
+												aria-label={`${getLocale() === 'it' ? 'Rimuovi test' : 'Remove test case'} ${i + 1}`}
+												onclick={() => (plan.test_cases = plan.test_cases.filter((t) => t.id !== testCase.id))}
+												><Trash2 size={16} /></Button
+											>{/if}
+									</div>
+									<div class="grid gap-4 sm:grid-cols-2">
+										<label class="space-y-1 text-sm"
+											><span>{t('Steps')}</span><textarea
+												rows="3"
+												maxlength="10000"
+												class={fieldClass}
+												disabled={!canEdit || saving}
+												bind:value={testCase.steps}
+												oninput={() => invalidateTest(testCase)}
+												placeholder={t('Actions to perform')}
+											></textarea></label
+										><label class="space-y-1 text-sm"
+											><span>{t('Expected result')}</span><textarea
+												rows="3"
+												maxlength="5000"
+												class={fieldClass}
+												disabled={!canEdit || saving}
+												bind:value={testCase.expected_result}
+												oninput={() => invalidateTest(testCase)}
+												placeholder={t('What should happen')}
+											></textarea></label
+										>
+									</div>
+									<div class="grid gap-4 sm:grid-cols-[180px_1fr]">
+										<label class="space-y-1 text-sm"
+											><span>{t('Test status')}</span><select
+												class={fieldClass}
+												disabled={!canEdit || saving}
+												bind:value={testCase.status}
+												><option value="not_run">{t('Not run')}</option><option value="passed">{t('Passed')}</option
+												><option value="failed">{t('Failed')}</option><option value="blocked">{t('Blocked')}</option
+												></select
+											></label
+										><label class="space-y-1 text-sm"
+											><span
+												>{t('Evidence')}{testCase.status === 'passed' || testCase.status === 'failed'
+													? getLocale() === 'it'
+														? ' (richiesta)'
+														: ' (required)'
+													: ''}</span
+											><textarea
+												rows="2"
+												maxlength="10000"
+												required={testCase.status === 'passed' || testCase.status === 'failed'}
+												class={fieldClass}
+												disabled={!canEdit || saving}
+												bind:value={testCase.evidence}
+												placeholder={t('Observed result, environment, and links to proof')}
+											></textarea></label
+										>
+									</div>
 								</div>
-								<div class="grid gap-4 sm:grid-cols-2">
-									<label class="space-y-1 text-sm"
-										><span>Steps</span><textarea
-											rows="3"
-											maxlength="10000"
-											class={fieldClass}
-											bind:value={testCase.steps}
-											oninput={() => invalidateTest(testCase)}
-											placeholder="Actions to perform"
-										></textarea></label
-									><label class="space-y-1 text-sm"
-										><span>Expected result</span><textarea
-											rows="3"
-											maxlength="5000"
-											class={fieldClass}
-											bind:value={testCase.expected_result}
-											oninput={() => invalidateTest(testCase)}
-											placeholder="What should happen"
-										></textarea></label
-									>
-								</div>
-								<div class="grid gap-4 sm:grid-cols-[180px_1fr]">
-									<label class="space-y-1 text-sm"
-										><span>Test status</span><select class={fieldClass} bind:value={testCase.status}
-											><option value="not_run">Not run</option><option value="passed">Passed</option><option
-												value="failed">Failed</option
-											><option value="blocked">Blocked</option></select
-										></label
-									><label class="space-y-1 text-sm"
-										><span
-											>Evidence{testCase.status === 'passed' || testCase.status === 'failed' ? ' (required)' : ''}</span
-										><textarea
-											rows="2"
-											maxlength="10000"
-											required={testCase.status === 'passed' || testCase.status === 'failed'}
-											class={fieldClass}
-											bind:value={testCase.evidence}
-											placeholder="Observed result, environment, and links to proof"
-										></textarea></label
-									>
-								</div>
-							</div>
+							</details>
 						{/each}
 					</div>
 				</section>
-			</fieldset>
+			</div>
 		</form>
 	{/if}
 </div>

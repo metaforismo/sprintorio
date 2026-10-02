@@ -10,6 +10,8 @@
 	import { appToast } from '$lib/features/toast/toast';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale, setLocale } from '$lib/paraglide/runtime.js';
+	import { rememberWorkspace } from '$lib/utils/workspace-navigation';
+	import { experienceCopy } from '$lib/features/workspaces/experience-copy';
 	import { toSlug } from '$lib/utils/slug';
 
 	let {
@@ -27,15 +29,27 @@
 	let newWorkspaceSlug = $state('');
 	let slugEdited = $state(false);
 	let creating = $state(false);
+	let failed = $state(false);
+	let loading = $state(false);
+	const copy = $derived(experienceCopy[getLocale() === 'it' ? 'it' : 'en']);
 
-	onMount(async () => {
-		workspaces = await listWorkspaces();
-	});
+	async function load() {
+		loading = true;
+		failed = false;
+		try {
+			workspaces = await listWorkspaces();
+		} catch {
+			failed = true;
+		} finally {
+			loading = false;
+		}
+	}
+	onMount(load);
 
 	function switchWorkspace(ws: Workspace) {
 		open = false;
 		if (ws.slug !== slug) {
-			localStorage.setItem('sprintorio_last_workspace', ws.slug);
+			rememberWorkspace(ws.slug);
 			goto(`/${ws.slug}/my-issues`);
 		}
 	}
@@ -53,6 +67,7 @@
 
 	async function handleCreateWorkspace(e: Event) {
 		e.preventDefault();
+		if (creating) return;
 		const workspaceName = newWorkspaceName.trim();
 		const workspaceSlug = toSlug(newWorkspaceSlug || newWorkspaceName);
 		if (!workspaceName || !workspaceSlug) return;
@@ -61,7 +76,7 @@
 		try {
 			const workspace = await createWorkspace(workspaceName, workspaceSlug);
 			workspaces = [...workspaces, workspace].sort((a, b) => a.name.localeCompare(b.name));
-			localStorage.setItem('sprintorio_last_workspace', workspace.slug);
+			rememberWorkspace(workspace.slug);
 			appToast.success(m['sidebar.workspace_created']());
 			showCreateWorkspace = false;
 			newWorkspaceName = '';
@@ -77,23 +92,30 @@
 </script>
 
 <Popover.Root bind:open>
-	<Popover.Trigger class="min-w-0 w-full">
-		<button class="flex w-full min-w-0 items-center gap-2 rounded-md px-1 py-0.5 hover:bg-[var(--color-bg-hover)]">
-			<div
-				class="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-[var(--app-accent)] text-xs font-bold text-[var(--app-accent-foreground)]"
-			>
-				{currentWorkspace.name.charAt(0).toUpperCase()}
-			</div>
-			<span class="flex-1 truncate text-left text-sm font-medium text-[var(--color-text-primary)]">
-				{currentWorkspace.name}
-			</span>
-			<ChevronsUpDown size={14} class="shrink-0 text-[var(--color-text-tertiary)]" />
-		</button>
+	<Popover.Trigger
+		aria-label={m['sidebar.workspaces']()}
+		class="flex w-full min-w-0 items-center gap-2 rounded-md px-1 py-0.5 hover:bg-[var(--color-bg-hover)] max-md:min-h-11"
+	>
+		<div
+			class="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-[var(--app-accent)] text-xs font-bold text-[var(--app-accent-foreground)]"
+		>
+			{currentWorkspace.name.charAt(0).toUpperCase()}
+		</div>
+		<span class="flex-1 truncate text-left text-sm font-medium text-[var(--color-text-primary)]">
+			{currentWorkspace.name}
+		</span>
+		<ChevronsUpDown size={14} class="shrink-0 text-[var(--color-text-tertiary)]" />
 	</Popover.Trigger>
 	<Popover.Content class="w-56 p-1" align="start">
 		<div class="px-2 py-1">
-			<span class="text-[10px] font-medium uppercase text-[var(--color-text-tertiary)]">{m['sidebar.workspaces']()}</span>
+			<span class="text-[10px] font-medium uppercase text-[var(--color-text-tertiary)]"
+				>{m['sidebar.workspaces']()}</span
+			>
 		</div>
+		{#if failed}<div class="p-2 text-xs" role="alert">
+				<p>{copy.failed}</p>
+				<Button variant="outline" size="sm" class="mt-2" onclick={load}>{copy.retry}</Button>
+			</div>{:else if loading}<p class="p-2 text-xs" role="status">{copy.loading}</p>{/if}
 		{#each workspaces as ws}
 			<button
 				onclick={() => switchWorkspace(ws)}
@@ -131,7 +153,9 @@
 
 		<form onsubmit={handleCreateWorkspace} class="space-y-4 py-2">
 			<div>
-				<label for="workspace-name" class="mb-1 block text-sm text-[var(--color-text-secondary)]">{m['sidebar.workspace_name']()}</label>
+				<label for="workspace-name" class="mb-1 block text-sm text-[var(--color-text-secondary)]"
+					>{m['sidebar.workspace_name']()}</label
+				>
 				<input
 					id="workspace-name"
 					type="text"
@@ -145,15 +169,15 @@
 			</div>
 
 			<div>
-				<label for="workspace-slug" class="mb-1 block text-sm text-[var(--color-text-secondary)]">{m['sidebar.workspace_url']()}</label>
+				<label for="workspace-slug" class="mb-1 block text-sm text-[var(--color-text-secondary)]"
+					>{m['sidebar.workspace_url']()}</label
+				>
 				<input
 					id="workspace-slug"
 					type="text"
 					bind:value={newWorkspaceSlug}
-					oninput={() => {
-						slugEdited = true;
-						newWorkspaceSlug = toSlug(newWorkspaceSlug);
-					}}
+					oninput={() => (slugEdited = true)}
+					onblur={() => (newWorkspaceSlug = toSlug(newWorkspaceSlug))}
 					required
 					maxlength="50"
 					placeholder={m['sidebar.workspace_url_placeholder']()}
@@ -163,7 +187,9 @@
 			</div>
 
 			<Dialog.Footer>
-				<Button type="button" variant="outline" onclick={() => (showCreateWorkspace = false)} disabled={creating}>{m['sidebar.cancel']()}</Button>
+				<Button type="button" variant="outline" onclick={() => (showCreateWorkspace = false)} disabled={creating}
+					>{m['sidebar.cancel']()}</Button
+				>
 				<Button type="submit" disabled={creating || !newWorkspaceName.trim() || !newWorkspaceSlug.trim()}>
 					{#if creating}
 						<Loader2 size={14} class="animate-spin" />

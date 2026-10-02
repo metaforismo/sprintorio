@@ -45,7 +45,9 @@
 
 	const slug = $derived(page.params.workspaceSlug ?? '');
 	const currentPath = $derived(page.url.pathname);
-	const canUseDevMachines = $derived(!demoMode || authState.user?.is_sysadmin === true);
+	const canUseDevMachines = $derived(
+		authState.user?.dev_machines_enabled !== false && (!demoMode || authState.user?.is_sysadmin === true)
+	);
 
 	let teams = $state<Team[]>([]);
 	let expandedTeams = $state<Set<string>>(new Set());
@@ -99,7 +101,15 @@
 				{ label: m['settings.nav.github'](), href: `/${slug}/settings/github`, icon: GithubLogoIcon },
 				{ label: m['settings.nav.templates'](), href: `/${slug}/settings/templates`, icon: FileText },
 				{ label: m['settings.nav.ai'](), href: `/${slug}/settings/ai`, icon: Sparkles },
-				...(canUseDevMachines ? [{ label: m['settings.nav.dev_machines'](), href: `/${slug}/settings/dev-machines`, icon: SlidersHorizontal }] : [])
+				...(canUseDevMachines
+					? [
+							{
+								label: m['settings.nav.dev_machines'](),
+								href: `/${slug}/settings/dev-machines`,
+								icon: SlidersHorizontal
+							}
+						]
+					: [])
 			]
 		},
 		{
@@ -188,7 +198,7 @@
 									: 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]'}"
 							>
 								<SlidersHorizontal size={13} />
-									{m['settings.nav.general']()}
+								{m['settings.nav.general']()}
 							</a>
 							<a
 								href="/{slug}/settings/teams/{team.id}/statuses"
@@ -199,7 +209,7 @@
 									: 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]'}"
 							>
 								<CircleDot size={13} />
-									{m['settings.nav.issue_statuses']()}
+								{m['settings.nav.issue_statuses']()}
 							</a>
 						</div>
 					{/if}
@@ -214,7 +224,12 @@
 	<div
 		class="flex h-12 shrink-0 items-center gap-2 border-b border-[var(--app-border)] bg-[var(--color-bg)] px-3 md:hidden"
 	>
-		<Button variant="ghost" size="icon-lg" onclick={() => (showMobileNav = true)} aria-label={m['settings.open_menu']()}>
+		<Button
+			variant="ghost"
+			size="icon-lg"
+			onclick={() => (showMobileNav = true)}
+			aria-label={m['settings.open_menu']()}
+		>
 			<Menu size={18} />
 		</Button>
 		<span class="text-sm font-medium text-[var(--color-text-primary)]">{m['settings.title']()}</span>

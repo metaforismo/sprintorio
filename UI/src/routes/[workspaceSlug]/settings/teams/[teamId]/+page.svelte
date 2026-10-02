@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { authState } from '$lib/features/auth/auth.state.svelte';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import type { Team } from '$lib/types/team';
@@ -12,7 +13,12 @@
 	import * as Select from '$lib/components/ui/select';
 	import * as Popover from '$lib/components/ui/popover';
 	import { getGitHubStatus } from '$lib/api/github';
-	import { deleteDevMachineScopeSetting, getDevMachineScopeSetting, listDevMachineEnvironments, updateDevMachineScopeSetting } from '$lib/api/dev-machines';
+	import {
+		deleteDevMachineScopeSetting,
+		getDevMachineScopeSetting,
+		listDevMachineEnvironments,
+		updateDevMachineScopeSetting
+	} from '$lib/api/dev-machines';
 	import type { GitHubRepo } from '$lib/types/github';
 	import type { DevMachineEnvironment } from '$lib/types/dev-machine';
 	import { appToast } from '$lib/features/toast/toast';
@@ -45,6 +51,7 @@
 	let emojiLoading = $state(false);
 	let emojiDatabase: Database | null = null;
 	let emojiRequestId = 0;
+	const developmentEnabled = $derived(authState.user?.dev_machines_enabled !== false);
 	let developmentRepositories = $state<GitHubRepo[]>([]);
 	let developmentEnvironments = $state<DevMachineEnvironment[]>([]);
 	let developmentRepositoryId = $state('inherit');
@@ -185,7 +192,7 @@
 	});
 
 	function isCurrentDevelopmentScope(s: string, t: string, version: number) {
-		return slug === s && teamId === t && developmentRequestVersion === version;
+		return developmentEnabled && slug === s && teamId === t && developmentRequestVersion === version;
 	}
 
 	async function loadDevelopmentSettings(s: string, t: string, version: number) {
@@ -195,7 +202,9 @@
 			canManageDevelopment = workspace.current_user_role === 'owner' || workspace.current_user_role === 'admin';
 			if (!canManageDevelopment) return;
 			const [github, setting, environments] = await Promise.all([
-				getGitHubStatus(s), getDevMachineScopeSetting(s, 'team', t), listDevMachineEnvironments(s)
+				getGitHubStatus(s),
+				getDevMachineScopeSetting(s, 'team', t),
+				listDevMachineEnvironments(s)
 			]);
 			if (!isCurrentDevelopmentScope(s, t, version)) return;
 			developmentRepositories = github.repos ?? [];
@@ -224,7 +233,7 @@
 		developmentReady = false;
 		savingDevelopment = false;
 		canManageDevelopment = false;
-		if (!s || !t) return;
+		if (!s || !t || !developmentEnabled) return;
 		void loadDevelopmentSettings(s, t, version);
 		return () => {
 			if (developmentRequestVersion === version) developmentRequestVersion++;
@@ -343,7 +352,8 @@
 	}
 
 	async function saveDevelopmentSettings() {
-		if (!canManageDevelopment || developmentLoading || !developmentReady || savingDevelopment) return;
+		if (!developmentEnabled || !canManageDevelopment || developmentLoading || !developmentReady || savingDevelopment)
+			return;
 		const s = slug;
 		const t = teamId;
 		const requestVersion = developmentRequestVersion;
@@ -357,8 +367,10 @@
 				await deleteDevMachineScopeSetting(s, 'team', t);
 			} else {
 				await updateDevMachineScopeSetting(s, {
-					scope_type: 'team', scope_id: t,
-					github_repo_id: repository?.id, base_branch: repository?.default_branch,
+					scope_type: 'team',
+					scope_id: t,
+					github_repo_id: repository?.id,
+					base_branch: repository?.default_branch,
 					environment_id: environmentId === 'inherit' ? undefined : environmentId
 				});
 			}
@@ -368,7 +380,8 @@
 			if (!isCurrentDevelopmentScope(s, t, requestVersion) || developmentSaveVersion !== saveVersion) return;
 			appToast.apiError(error, m['team_settings.toast.dev_settings_save_failed']());
 		} finally {
-			if (isCurrentDevelopmentScope(s, t, requestVersion) && developmentSaveVersion === saveVersion) savingDevelopment = false;
+			if (isCurrentDevelopmentScope(s, t, requestVersion) && developmentSaveVersion === saveVersion)
+				savingDevelopment = false;
 		}
 	}
 </script>
@@ -419,8 +432,12 @@
 						/>
 					</div>
 					<div class="flex justify-end gap-2">
-						<Button variant="outline" size="sm" onclick={() => (editingDetails = false)}><X size={14} />{m['team_settings.cancel']()}</Button>
-						<Button size="sm" onclick={saveDetails} disabled={!editName.trim()}><Check size={14} />{m['team_settings.save']()}</Button>
+						<Button variant="outline" size="sm" onclick={() => (editingDetails = false)}
+							><X size={14} />{m['team_settings.cancel']()}</Button
+						>
+						<Button size="sm" onclick={saveDetails} disabled={!editName.trim()}
+							><Check size={14} />{m['team_settings.save']()}</Button
+						>
 					</div>
 				{:else}
 					<div class="grid gap-3 text-sm">
@@ -441,16 +458,75 @@
 			</div>
 		</div>
 
-		<div class="mt-6 rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-secondary)]">
-			<div class="border-b border-[var(--app-border)] px-5 py-4"><p class="text-sm font-medium text-[var(--color-text-primary)]">{m['team_settings.development_defaults']()}</p><p class="text-xs text-[var(--color-text-tertiary)]">{m['team_settings.development_defaults_desc']()}</p></div>
-			<div class="grid gap-4 px-5 py-4 sm:grid-cols-2">
-				{#if !canManageDevelopment}<p class="rounded-md border border-[var(--app-border)] p-3 text-xs text-[var(--color-text-tertiary)] sm:col-span-2">{m['team_settings.development_admin_only']()}</p>{/if}
-				<div class="space-y-1"><Label>{m['team_settings.repository']()}</Label><Select.Root type="single" value={developmentRepositoryId} disabled={developmentLoading || !developmentReady || !canManageDevelopment} onValueChange={(value) => value && (developmentRepositoryId = value)}><Select.Trigger class="w-full">{developmentLoading ? m['team_settings.loading']() : developmentRepositories.find((item) => item.id === developmentRepositoryId)?.full_name ?? m['team_settings.use_workspace_default']()}</Select.Trigger><Select.Content><Select.Item value="inherit" label={m['team_settings.use_workspace_default']()}>{m['team_settings.use_workspace_default']()}</Select.Item>{#each developmentRepositories as repository}<Select.Item value={repository.id} label={repository.full_name}>{repository.full_name}</Select.Item>{/each}</Select.Content></Select.Root></div>
-				<div class="space-y-1"><Label>{m['team_settings.environment']()}</Label><Select.Root type="single" value={developmentEnvironmentId} disabled={developmentLoading || !developmentReady || !canManageDevelopment} onValueChange={(value) => value && (developmentEnvironmentId = value)}><Select.Trigger class="w-full">{developmentLoading ? m['team_settings.loading']() : developmentEnvironments.find((item) => item.id === developmentEnvironmentId)?.name ?? m['team_settings.use_workspace_default']()}</Select.Trigger><Select.Content><Select.Item value="inherit" label={m['team_settings.use_workspace_default']()}>{m['team_settings.use_workspace_default']()}</Select.Item>{#each developmentEnvironments as environment}<Select.Item value={environment.id} label={environment.name}>{environment.name}</Select.Item>{/each}</Select.Content></Select.Root></div>
-				<div class="flex justify-end sm:col-span-2"><Button size="sm" onclick={saveDevelopmentSettings} disabled={developmentLoading || !developmentReady || savingDevelopment || !canManageDevelopment}>{savingDevelopment ? m['team_settings.saving']() : m['team_settings.save_development_defaults']()}</Button></div>
+		{#if developmentEnabled}
+			<div class="mt-6 rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-secondary)]">
+				<div class="border-b border-[var(--app-border)] px-5 py-4">
+					<p class="text-sm font-medium text-[var(--color-text-primary)]">
+						{m['team_settings.development_defaults']()}
+					</p>
+					<p class="text-xs text-[var(--color-text-tertiary)]">{m['team_settings.development_defaults_desc']()}</p>
+				</div>
+				<div class="grid gap-4 px-5 py-4 sm:grid-cols-2">
+					{#if !canManageDevelopment}<p
+							class="rounded-md border border-[var(--app-border)] p-3 text-xs text-[var(--color-text-tertiary)] sm:col-span-2"
+						>
+							{m['team_settings.development_admin_only']()}
+						</p>{/if}
+					<div class="space-y-1">
+						<Label>{m['team_settings.repository']()}</Label><Select.Root
+							type="single"
+							value={developmentRepositoryId}
+							disabled={developmentLoading || !developmentReady || !canManageDevelopment}
+							onValueChange={(value) => value && (developmentRepositoryId = value)}
+							><Select.Trigger class="w-full"
+								>{developmentLoading
+									? m['team_settings.loading']()
+									: (developmentRepositories.find((item) => item.id === developmentRepositoryId)?.full_name ??
+										m['team_settings.use_workspace_default']())}</Select.Trigger
+							><Select.Content
+								><Select.Item value="inherit" label={m['team_settings.use_workspace_default']()}
+									>{m['team_settings.use_workspace_default']()}</Select.Item
+								>{#each developmentRepositories as repository}<Select.Item
+										value={repository.id}
+										label={repository.full_name}>{repository.full_name}</Select.Item
+									>{/each}</Select.Content
+							></Select.Root
+						>
+					</div>
+					<div class="space-y-1">
+						<Label>{m['team_settings.environment']()}</Label><Select.Root
+							type="single"
+							value={developmentEnvironmentId}
+							disabled={developmentLoading || !developmentReady || !canManageDevelopment}
+							onValueChange={(value) => value && (developmentEnvironmentId = value)}
+							><Select.Trigger class="w-full"
+								>{developmentLoading
+									? m['team_settings.loading']()
+									: (developmentEnvironments.find((item) => item.id === developmentEnvironmentId)?.name ??
+										m['team_settings.use_workspace_default']())}</Select.Trigger
+							><Select.Content
+								><Select.Item value="inherit" label={m['team_settings.use_workspace_default']()}
+									>{m['team_settings.use_workspace_default']()}</Select.Item
+								>{#each developmentEnvironments as environment}<Select.Item
+										value={environment.id}
+										label={environment.name}>{environment.name}</Select.Item
+									>{/each}</Select.Content
+							></Select.Root
+						>
+					</div>
+					<div class="flex justify-end sm:col-span-2">
+						<Button
+							size="sm"
+							onclick={saveDevelopmentSettings}
+							disabled={developmentLoading || !developmentReady || savingDevelopment || !canManageDevelopment}
+							>{savingDevelopment
+								? m['team_settings.saving']()
+								: m['team_settings.save_development_defaults']()}</Button
+						>
+					</div>
+				</div>
 			</div>
-		</div>
-
+		{/if}
 		<div class="mt-6 rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-secondary)]">
 			<div class="border-b border-[var(--app-border)] px-5 py-4">
 				<p class="text-sm font-medium text-[var(--color-text-primary)]">{m['team_settings.appearance']()}</p>
@@ -461,20 +537,25 @@
 					<p class="mb-2 text-xs font-medium text-[var(--color-text-secondary)]">{m['team_settings.icon']()}</p>
 					<Popover.Root bind:open={pickerOpen}>
 						<Popover.Trigger>
-							<button
-								type="button"
-								class="flex items-center gap-3 rounded-lg border border-[var(--app-border)] bg-[var(--color-bg)] px-3 py-2 text-left transition-colors hover:bg-[var(--color-bg-hover)]"
-							>
-								<span class="flex h-9 w-9 items-center justify-center rounded-md bg-[var(--color-bg-secondary)]">
-									<TeamIcon {team} size={20} />
-								</span>
-								<span>
-									<span class="block text-sm text-[var(--color-text-primary)]">{m['team_settings.choose_icon_or_emoji']()}</span>
-									<span class="block text-xs text-[var(--color-text-tertiary)]"
-										>{m['team_settings.icons_preview_desc']()}</span
-									>
-								</span>
-							</button>
+							{#snippet child({ props })}
+								<button
+									{...props}
+									type="button"
+									class="flex items-center gap-3 rounded-lg border border-[var(--app-border)] bg-[var(--color-bg)] px-3 py-2 text-left transition-colors hover:bg-[var(--color-bg-hover)]"
+								>
+									<span class="flex h-9 w-9 items-center justify-center rounded-md bg-[var(--color-bg-secondary)]">
+										{#if team}<TeamIcon {team} size={20} />{/if}
+									</span>
+									<span>
+										<span class="block text-sm text-[var(--color-text-primary)]"
+											>{m['team_settings.choose_icon_or_emoji']()}</span
+										>
+										<span class="block text-xs text-[var(--color-text-tertiary)]"
+											>{m['team_settings.icons_preview_desc']()}</span
+										>
+									</span>
+								</button>
+							{/snippet}
 						</Popover.Trigger>
 						<Popover.Content class="w-72 p-0" align="start">
 							<div class="border-b border-[var(--app-border)] p-2">
@@ -485,7 +566,9 @@
 									/>
 									<input
 										bind:value={pickerQuery}
-										placeholder={pickerTab === 'icons' ? m['team_settings.search_lucide_icons']() : m['team_settings.search_emoji']()}
+										placeholder={pickerTab === 'icons'
+											? m['team_settings.search_lucide_icons']()
+											: m['team_settings.search_emoji']()}
 										class="h-8 w-full rounded-md border border-[var(--app-border)] bg-[var(--color-bg)] pl-7 pr-2 text-sm text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--app-accent)]"
 									/>
 								</div>
@@ -534,7 +617,9 @@
 										{/each}
 									</div>
 									{#if visibleIcons.length < filteredIcons.length}
-										<p class="py-2 text-center text-[10px] text-[var(--color-text-tertiary)]">{m['team_settings.scroll_for_more_icons']()}</p>
+										<p class="py-2 text-center text-[10px] text-[var(--color-text-tertiary)]">
+											{m['team_settings.scroll_for_more_icons']()}
+										</p>
 									{/if}
 								{/if}
 								{#if pickerTab === 'emoji'}
@@ -550,8 +635,8 @@
 													class="shrink-0 rounded-full px-2 py-0.5 text-[10px] {emojiGroup === group.id
 														? 'bg-[var(--app-accent)]/10 text-[var(--app-accent-light)]'
 														: 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]'}"
-													>
-														{dynamicMessage[group.labelKey]()}
+												>
+													{dynamicMessage[group.labelKey]()}
 												</button>
 											{/each}
 										</div>
@@ -561,7 +646,10 @@
 									>
 										{pickerQuery.trim()
 											? m['team_settings.emoji_search_label']()
-											: dynamicMessage[EMOJI_GROUPS.find((group) => group.id === emojiGroup)?.labelKey ?? 'team_settings.emoji_default_label']()} · {emojiResults.length}
+											: dynamicMessage[
+													EMOJI_GROUPS.find((group) => group.id === emojiGroup)?.labelKey ??
+														'team_settings.emoji_default_label'
+												]()} · {emojiResults.length}
 									</p>
 									{#if emojiLoading}
 										<div class="flex justify-center py-6">
@@ -664,10 +752,13 @@
 					class="w-full rounded-lg border border-[var(--app-border)] bg-[var(--color-bg)] px-3 py-2 font-mono text-sm text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--app-accent)]"
 				></textarea>
 				<p class="text-xs text-[var(--color-text-tertiary)]">
-					{m['team_settings.available_placeholders']()} {'{{issue_identifier}}'}, {'{{issue_title}}'}, {'{{team_key}}'}, {'{{team_name}}'}, {'{{issue_xml}}'}.
+					{m['team_settings.available_placeholders']()}
+					{'{{issue_identifier}}'}, {'{{issue_title}}'}, {'{{team_key}}'}, {'{{team_name}}'}, {'{{issue_xml}}'}.
 				</p>
 				<div class="flex justify-end gap-2">
-					<Button variant="outline" size="sm" onclick={() => (issueCopyPrompt = '')}>{m['team_settings.use_workspace_default']()}</Button>
+					<Button variant="outline" size="sm" onclick={() => (issueCopyPrompt = '')}
+						>{m['team_settings.use_workspace_default']()}</Button
+					>
 					<Button size="sm" onclick={saveIssueCopyPrompt} disabled={savingIssueCopyPrompt}>
 						{savingIssueCopyPrompt ? m['team_settings.saving']() : m['team_settings.save_prompt']()}
 					</Button>

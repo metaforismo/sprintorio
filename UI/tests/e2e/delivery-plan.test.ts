@@ -88,14 +88,14 @@ test('member persists product, milestones and manual test evidence; readiness st
 	await page.getByRole('button', { name: 'Save plan' }).click();
 	await expect(page.getByRole('status').filter({ hasText: 'Delivery plan saved.' })).toBeVisible();
 	if (process.env.UPDATE_SCREENSHOTS === '1') {
-	await mkdir('../assets', { recursive: true });
-	await mkdir('../WEB/static', { recursive: true });
-	await page.screenshot({ path: '../assets/product-screenshot.png', fullPage: true });
-	await copyFile('../assets/product-screenshot.png', '../WEB/static/product-screenshot.png');
-	await page.screenshot({ path: '../WEB/static/product-screenshot-1440.png', fullPage: true });
-	await page.setViewportSize({ width: 720, height: 1600 });
-	await page.screenshot({ path: '../WEB/static/product-screenshot-720.png', fullPage: true });
-	await page.setViewportSize({ width: 1440, height: 1600 });
+		await mkdir('../assets', { recursive: true });
+		await mkdir('../WEB/static', { recursive: true });
+		await page.setViewportSize({ width: 1440, height: 1000 });
+		await page.screenshot({ path: '../assets/product-screenshot.jpg', fullPage: true });
+		await copyFile('../assets/product-screenshot.jpg', '../WEB/static/product-screenshot.jpg');
+		await page.setViewportSize({ width: 390, height: 844 });
+		await page.screenshot({ path: '../WEB/static/product-mobile.jpg', fullPage: true });
+		await page.setViewportSize({ width: 1440, height: 1600 });
 	}
 	expect(state.writes[0]).toMatchObject({
 		version: 0,
@@ -151,7 +151,36 @@ test('delivery form works on a narrow mobile viewport without horizontal overflo
 	await page.getByLabel('Test case 1', { exact: true }).fill('Mobile sign in');
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 	if (process.env.UPDATE_SCREENSHOTS === '1') {
-	await mkdir('../assets', { recursive: true });
-	await page.screenshot({ path: '../assets/delivery-mobile.png', fullPage: true });
+		await mkdir('../assets', { recursive: true });
+		await page.screenshot({ path: '../assets/delivery-mobile.jpg', fullPage: true });
 	}
+});
+
+test('manual test templates stay unrun and saved test lists can be searched and filtered', async ({ page }) => {
+	const state = await setup(page);
+	for (const name of ['Acceptance', 'Regression', 'Accessibility', 'Acceptance']) {
+		await page.getByRole('button', { name, exact: true }).click();
+	}
+	await expect(page.getByText('Testing pending', { exact: true })).toBeVisible();
+	await page.getByRole('button', { name: 'Save plan', exact: true }).click();
+	expect(state.writes[0].plan.test_cases.every((item: any) => item.status === 'not_run' && !item.evidence)).toBe(true);
+	await page.reload();
+	await page.getByRole('button', { name: 'Delivery', exact: true }).click();
+	await expect(page.getByLabel('Steps', { exact: true }).first()).toBeHidden();
+	await page.getByLabel('Search tests', { exact: true }).fill('keyboard');
+	await expect(page.locator('summary').filter({ hasText: 'Accessibility check' })).toHaveCount(1);
+	await expect(page.locator('summary').filter({ hasText: 'Acceptance check' })).toHaveCount(0);
+	const accessibilitySummary = page.locator('summary').filter({ hasText: 'Accessibility check' });
+	if ((await accessibilitySummary.locator('..').getAttribute('open')) === null) await accessibilitySummary.click();
+	await expect(page.getByLabel('Test case 3', { exact: true })).toHaveValue('Accessibility check');
+
+	await page.getByRole('combobox', { name: 'Filter by result', exact: true }).selectOption('passed');
+	await expect(page.getByText('No matching tests.', { exact: true })).toBeVisible();
+	await page.getByRole('combobox', { name: 'Filter by result', exact: true }).selectOption('all');
+	if ((await accessibilitySummary.locator('..').getAttribute('open')) === null) await accessibilitySummary.click();
+	await page.getByRole('button', { name: 'Remove test case 3', exact: true }).click();
+	await expect(page.getByLabel('Search tests', { exact: true })).toHaveValue('keyboard');
+	await page.getByLabel('Search tests', { exact: true }).fill('');
+	await expect(page.locator('summary').filter({ hasText: 'Acceptance check' })).toHaveCount(2);
+	await expect(page.locator('summary').filter({ hasText: 'Regression check' })).toHaveCount(1);
 });

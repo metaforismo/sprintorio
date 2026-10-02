@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { Team } from '$lib/types/team';
 	import { getStableTeamColor } from '$lib/features/layout/sidebar.state.svelte';
-	import * as LucideIcons from 'lucide-svelte';
-	import type { Component } from 'svelte';
+	import { Box, CircleDot, Layers, Settings, ShieldCheck, SquareUser, Users } from 'lucide-svelte';
+	import { loadTeamIcon, type TeamIconComponent } from '$lib/utils/team-icons';
 
 	const LEGACY_ICON_NAMES: Record<string, string> = {
 		box: 'Box',
@@ -13,7 +13,7 @@
 		'square-user': 'SquareUser',
 		users: 'Users'
 	};
-	const lucideIconMap = LucideIcons as unknown as Record<string, Component>;
+	const commonIcons: Record<string, TeamIconComponent> = { Box, CircleDot, Layers, Settings, ShieldCheck, SquareUser, Users };
 
 	function resolveIconName(icon?: string | null): string {
 		if (!icon || icon.startsWith('emoji:')) return 'SquareUser';
@@ -30,9 +30,21 @@
 		class?: string;
 	} = $props();
 
-	const Icon = $derived(lucideIconMap[resolveIconName(team.icon)] ?? LucideIcons.SquareUser);
+	let customIcon = $state<TeamIconComponent | null>(null);
+	const iconName = $derived(resolveIconName(team.icon));
+	const Icon = $derived(commonIcons[iconName] ?? customIcon ?? SquareUser);
 	const emoji = $derived(team.icon?.startsWith('emoji:') ? team.icon.slice(6) : null);
 	const color = $derived(getStableTeamColor(team));
+
+	$effect(() => {
+		customIcon = null;
+		if (emoji || commonIcons[iconName]) return;
+		let active = true;
+		loadTeamIcon(iconName).then((icon) => {
+			if (active) customIcon = icon;
+		});
+		return () => { active = false; };
+	});
 </script>
 
 {#if emoji}

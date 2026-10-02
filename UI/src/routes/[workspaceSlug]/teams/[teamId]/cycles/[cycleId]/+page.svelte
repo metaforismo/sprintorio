@@ -25,7 +25,18 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale, setLocale } from '$lib/paraglide/runtime.js';
 	import { formatRelativeTime } from '$lib/utils/format';
-	import { CheckCircle2, Play, Clock, Trash2, MoreHorizontal, Search, Plus, SquareUser, RefreshCcwDot, ChevronRight } from 'lucide-svelte';
+	import {
+		CheckCircle2,
+		Play,
+		Clock,
+		Trash2,
+		MoreHorizontal,
+		Search,
+		Plus,
+		SquareUser,
+		RefreshCcwDot,
+		ChevronRight
+	} from 'lucide-svelte';
 	import SidebarToggle from '$lib/components/layout/SidebarToggle.svelte';
 	import { sidebarState } from '$lib/features/layout/sidebar.state.svelte';
 	import { createKeyboardHandler } from '$lib/utils/keyboard';
@@ -51,7 +62,7 @@
 	let allCycles = $state<Cycle[]>([]);
 	const nextUpcomingCycle = $derived(
 		allCycles
-			.filter(c => c.status === 'upcoming')
+			.filter((c) => c.status === 'upcoming')
 			.sort((a, b) => {
 				const aD = a.start_date ? new Date(a.start_date).getTime() : Infinity;
 				const bD = b.start_date ? new Date(b.start_date).getTime() : Infinity;
@@ -110,7 +121,10 @@
 			const q = addSearchQuery.toLowerCase();
 			const results = await listIssues(slug, { team: teamId, per_page: '50' });
 			availableIssues = results.data
-				.filter((i: import('$lib/types/issue').Issue) => i.cycle_id !== cycleId && (i.title.toLowerCase().includes(q) || i.identifier.toLowerCase().includes(q)))
+				.filter(
+					(i: import('$lib/types/issue').Issue) =>
+						i.cycle_id !== cycleId && (i.title.toLowerCase().includes(q) || i.identifier.toLowerCase().includes(q))
+				)
 				.slice(0, 10);
 		} catch {
 			availableIssues = [];
@@ -163,7 +177,7 @@
 	async function handleDateRangeChange(start: string, end: string) {
 		if (!cycle || !canManageCycles) return;
 		try {
-			cycle = await updateCycle(slug, teamId, cycle.id, { start_date: start, end_date: end });
+			cycle = await updateCycle(slug, teamId, cycle.id, { start_date: start || null, end_date: end || null });
 			appToast.success(m['cycles.toast.dates_updated']());
 		} catch (err: any) {
 			appToast.apiError(err, m['cycles.toast.failed_update_dates']());
@@ -185,7 +199,7 @@
 
 	const keyHandler = createKeyboardHandler([
 		{ key: 'a', ctrl: true, handler: () => issuesState.selectAll() },
-		{ key: 'Escape', handler: () => issuesState.clearSelection() },
+		{ key: 'Escape', handler: () => issuesState.clearSelection() }
 	]);
 
 	onMount(() => {
@@ -208,12 +222,18 @@
 				<SidebarToggle />
 				<nav class="flex min-w-0 items-center gap-1.5 text-sm">
 					{#if sidebarState.getTeam(teamId)}
-						<a href="/{slug}/teams/{teamId}" class="flex items-center gap-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">
+						<a
+							href="/{slug}/teams/{teamId}"
+							class="flex items-center gap-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
+						>
 							<SquareUser size={14} class="shrink-0" style="color: {sidebarState.getTeamColor(teamId)}" />
 							<span class="hidden sm:inline truncate">{sidebarState.getTeam(teamId)?.name}</span>
 						</a>
 						<ChevronRight size={12} class="shrink-0 text-[var(--color-text-tertiary)]" />
-						<a href="/{slug}/teams/{teamId}/cycles" class="flex items-center gap-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">
+						<a
+							href="/{slug}/teams/{teamId}/cycles"
+							class="flex items-center gap-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
+						>
 							<RefreshCcwDot size={14} class="shrink-0" />
 							<span class="hidden sm:inline">{m['cycles.title']()}</span>
 						</a>
@@ -221,41 +241,49 @@
 					{/if}
 					<span class="truncate font-medium text-[var(--color-text-primary)]">{cycle.name}</span>
 				</nav>
-				<Badge variant={cycle.status === 'active' ? 'default' : cycle.status === 'completed' ? 'secondary' : 'outline'} class="shrink-0 text-[10px]">
+				<Badge
+					variant={cycle.status === 'active' ? 'default' : cycle.status === 'completed' ? 'secondary' : 'outline'}
+					class="shrink-0 text-[10px]"
+				>
 					{cycle.status}
 				</Badge>
 			</div>
 			{#if canManageCycles}
-			<div class="flex shrink-0 items-center gap-2">
-				{#if cycle.status === 'upcoming'}
-					<Button size="sm" onclick={handleActivate}>
-						<Play size={14} class="mr-1" />
-						{m['cycles.start_cycle']()}
-					</Button>
-				{/if}
-				{#if cycle.status === 'active'}
-					<Button size="sm" onclick={handleComplete}>
-						<CheckCircle2 size={14} class="mr-1" />
-						{m['cycles.complete']()}
-					</Button>
-				{/if}
-				<Popover.Root bind:open={actionsOpen}>
-					<Popover.Trigger>
-						<Button variant="ghost" size="icon-sm">
-							<MoreHorizontal size={14} />
+				<div class="flex shrink-0 items-center gap-2">
+					{#if cycle.status === 'upcoming'}
+						<Button size="sm" onclick={handleActivate}>
+							<Play size={14} class="mr-1" />
+							{m['cycles.start_cycle']()}
 						</Button>
-					</Popover.Trigger>
-					<Popover.Content class="w-40 p-1" align="end">
-						<button
-							onclick={() => { actionsOpen = false; handleDelete(); }}
-							class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-[var(--color-error)] hover:bg-[var(--color-bg-hover)]"
-						>
-							<Trash2 size={14} />
-							{m['cycles.delete_cycle']()}
-						</button>
-					</Popover.Content>
-				</Popover.Root>
-			</div>
+					{/if}
+					{#if cycle.status === 'active'}
+						<Button size="sm" onclick={handleComplete}>
+							<CheckCircle2 size={14} class="mr-1" />
+							{m['cycles.complete']()}
+						</Button>
+					{/if}
+					<Popover.Root bind:open={actionsOpen}>
+						<Popover.Trigger>
+							{#snippet child({ props })}
+								<Button {...props} variant="ghost" size="icon-sm">
+									<MoreHorizontal size={14} />
+								</Button>
+							{/snippet}
+						</Popover.Trigger>
+						<Popover.Content class="w-40 p-1" align="end">
+							<button
+								onclick={() => {
+									actionsOpen = false;
+									handleDelete();
+								}}
+								class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-[var(--color-error)] hover:bg-[var(--color-bg-hover)]"
+							>
+								<Trash2 size={14} />
+								{m['cycles.delete_cycle']()}
+							</button>
+						</Popover.Content>
+					</Popover.Root>
+				</div>
 			{/if}
 		</div>
 
@@ -309,48 +337,60 @@
 
 		<!-- Add issues section -->
 		{#if canUpdateIssues}
-		<div class="border-b border-[var(--app-border)] px-3 py-3 sm:px-6">
-			<div class="relative">
-				<div class="flex items-center gap-2 rounded-md border border-[var(--app-border)] bg-[var(--color-bg-secondary)] px-3 py-1.5">
-					<Search size={14} class="text-[var(--color-text-tertiary)]" />
-					<input
-						type="text"
-						bind:value={addSearchQuery}
-						oninput={() => searchAvailableIssues()}
-						onfocus={() => (addSearchOpen = true)}
-						onblur={() => setTimeout(() => (addSearchOpen = false), 200)}
-						placeholder={m['cycles.search_issues_placeholder']()}
-						class="w-full bg-transparent text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] outline-none"
-					/>
-				</div>
-				{#if addSearchOpen && availableIssues.length > 0}
-					<div class="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-md border border-[var(--app-border)] bg-[var(--color-bg)] shadow-lg">
-						{#each availableIssues as issue}
-							<button
-								onmousedown={() => handleAddIssueToCycle(issue)}
-								class="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-[var(--color-bg-hover)]"
-							>
-								<Plus size={14} class="shrink-0 text-[var(--color-text-tertiary)]" />
-								<span class="shrink-0 text-xs text-[var(--color-text-tertiary)]">{issue.identifier}</span>
-								<span class="truncate text-[var(--color-text-primary)]">{issue.title}</span>
-							</button>
-						{/each}
+			<div class="border-b border-[var(--app-border)] px-3 py-3 sm:px-6">
+				<div class="relative">
+					<div
+						class="flex items-center gap-2 rounded-md border border-[var(--app-border)] bg-[var(--color-bg-secondary)] px-3 py-1.5"
+					>
+						<Search size={14} class="text-[var(--color-text-tertiary)]" />
+						<input
+							type="text"
+							bind:value={addSearchQuery}
+							oninput={() => searchAvailableIssues()}
+							onfocus={() => (addSearchOpen = true)}
+							onblur={() => setTimeout(() => (addSearchOpen = false), 200)}
+							placeholder={m['cycles.search_issues_placeholder']()}
+							class="w-full bg-transparent text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] outline-none"
+						/>
 					</div>
-				{/if}
+					{#if addSearchOpen && availableIssues.length > 0}
+						<div
+							class="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-md border border-[var(--app-border)] bg-[var(--color-bg)] shadow-lg"
+						>
+							{#each availableIssues as issue}
+								<button
+									onmousedown={() => handleAddIssueToCycle(issue)}
+									class="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-[var(--color-bg-hover)]"
+								>
+									<Plus size={14} class="shrink-0 text-[var(--color-text-tertiary)]" />
+									<span class="shrink-0 text-xs text-[var(--color-text-tertiary)]">{issue.identifier}</span>
+									<span class="truncate text-[var(--color-text-primary)]">{issue.title}</span>
+								</button>
+							{/each}
+						</div>
+					{/if}
+				</div>
 			</div>
-		</div>
 		{/if}
 
 		<!-- Issues list -->
 		<div class="flex-1 overflow-y-auto">
 			{#if !issuesState.loading && issuesState.issues.length === 0}
-				<EmptyState
-					title={m['cycles.no_issues']()}
-					description={m['cycles.no_issues_desc']()}
-				/>
+				<EmptyState title={m['cycles.no_issues']()} description={m['cycles.no_issues_desc']()} />
 			{:else}
 				{#each issuesState.issues as issue (issue.id)}
-					<IssueRow {issue} {slug} {members} {labels} {lastSelectedId} onlastselected={(id) => lastSelectedId = id} onclick={(i) => { lastSelectedId = i.id; goto(`/${slug}/issue/${i.identifier}`); }} />
+					<IssueRow
+						{issue}
+						{slug}
+						{members}
+						{labels}
+						{lastSelectedId}
+						onlastselected={(id) => (lastSelectedId = id)}
+						onclick={(i) => {
+							lastSelectedId = i.id;
+							goto(`/${slug}/issue/${i.identifier}`);
+						}}
+					/>
 				{/each}
 			{/if}
 		</div>
@@ -360,7 +400,7 @@
 {#if canManageCycles}
 	<CompleteCycleDialog
 		bind:open={showComplete}
-		cycle={cycle}
+		{cycle}
 		{incompleteCount}
 		{nextUpcomingCycle}
 		onsubmit={handleCompleteSubmit}

@@ -48,6 +48,7 @@ type WorkspaceRepo interface {
 }
 
 type TeamRepo interface {
+	CreateWithMemberAndStatuses(context.Context, *domain.Team, *domain.TeamMember, []domain.TeamStatus) error
 	Create(ctx context.Context, team *domain.Team) error
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Team, error)
 	ListByWorkspace(ctx context.Context, workspaceID uuid.UUID) ([]domain.Team, error)
@@ -107,6 +108,8 @@ type CommentRepo interface {
 }
 
 type ProjectRepo interface {
+	ValidateReferences(context.Context, uuid.UUID, *uuid.UUID, *uuid.UUID) (bool, error)
+	IssueStatsByWorkspace(context.Context, uuid.UUID) (map[uuid.UUID]dto.ProjectProgressResponse, error)
 	Create(ctx context.Context, project *domain.Project) error
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Project, error)
 	ListByWorkspace(ctx context.Context, workspaceID uuid.UUID) ([]domain.Project, error)
@@ -167,6 +170,8 @@ type IssueRelationRepo interface {
 }
 
 type TeamStatusRepo interface {
+	CreateWithProjectVisibility(context.Context, *domain.TeamStatus, []uuid.UUID) error
+	UpdateWithProjectVisibility(context.Context, *domain.TeamStatus, *[]uuid.UUID) error
 	Create(ctx context.Context, status *domain.TeamStatus) error
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.TeamStatus, error)
 	GetByIDs(ctx context.Context, ids []uuid.UUID) ([]domain.TeamStatus, error)

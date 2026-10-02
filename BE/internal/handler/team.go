@@ -2,16 +2,17 @@ package handler
 
 import (
 	"errors"
+	"github.com/metaforismo/sprintorio/BE/internal/repository"
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
 	"github.com/metaforismo/sprintorio/BE/internal/domain"
 	"github.com/metaforismo/sprintorio/BE/internal/dto"
 	"github.com/metaforismo/sprintorio/BE/internal/middleware"
 	"github.com/metaforismo/sprintorio/BE/internal/service"
 	"github.com/metaforismo/sprintorio/BE/pkg/response"
 	"github.com/metaforismo/sprintorio/BE/pkg/validate"
-	"github.com/labstack/echo/v4"
 )
 
 type TeamHandler struct {
@@ -52,7 +53,13 @@ func (h *TeamHandler) Create(c echo.Context) error {
 	userID := middleware.GetUserID(c)
 	team, err := h.teamSvc.Create(c.Request().Context(), ws.ID, userID, req)
 	if err != nil {
-		return response.Error(c, http.StatusConflict, "CONFLICT", err.Error())
+		if errors.Is(err, service.ErrInvalidTeam) {
+			return response.Error(c, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
+		}
+		if errors.Is(err, repository.ErrTeamKeyTaken) {
+			return response.Error(c, http.StatusConflict, "CONFLICT", err.Error())
+		}
+		return response.InternalError(c)
 	}
 	return response.Success(c, http.StatusCreated, toTeamResponse(*team))
 }
@@ -63,7 +70,11 @@ func (h *TeamHandler) Get(c echo.Context) error {
 		return response.Error(c, http.StatusBadRequest, "BAD_REQUEST", "Invalid team ID")
 	}
 	team, err := h.teamSvc.GetByID(c.Request().Context(), teamID)
-	if err != nil || team == nil {
+	if err != nil {
+		return response.InternalError(c)
+	}
+	ws := c.Get("workspace").(*domain.Workspace)
+	if team == nil || team.WorkspaceID != ws.ID {
 		return response.NotFound(c, "Team")
 	}
 	return response.Success(c, http.StatusOK, toTeamResponse(*team))
@@ -78,8 +89,18 @@ func (h *TeamHandler) Update(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return response.Error(c, http.StatusBadRequest, "BAD_REQUEST", "Invalid request body")
 	}
-	team, err := h.teamSvc.Update(c.Request().Context(), teamID, req)
+	if err := validate.Struct(&req); err != nil {
+		return response.Error(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid team fields")
+	}
+	ws := c.Get("workspace").(*domain.Workspace)
+	team, err := h.teamSvc.Update(c.Request().Context(), ws.ID, teamID, req)
 	if err != nil {
+		if errors.Is(err, service.ErrInvalidTeam) {
+			return response.Error(c, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
+		}
+		if errors.Is(err, service.ErrTeamNotFound) {
+			return response.NotFound(c, "Team")
+		}
 		return response.InternalError(c)
 	}
 	return response.Success(c, http.StatusOK, toTeamResponse(*team))
@@ -93,6 +114,9 @@ func (h *TeamHandler) Delete(c echo.Context) error {
 
 	ws := c.Get("workspace").(*domain.Workspace)
 	if err := h.teamSvc.Delete(c.Request().Context(), ws.ID, teamID); err != nil {
+		if errors.Is(err, service.ErrInvalidTeam) {
+			return response.Error(c, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
+		}
 		if errors.Is(err, service.ErrTeamNotFound) {
 			return response.NotFound(c, "Team")
 		}
@@ -112,6 +136,9 @@ func (h *TeamHandler) Leave(c echo.Context) error {
 	role, _ := c.Get("workspace_role").(string)
 	deleted, err := h.teamSvc.Leave(c.Request().Context(), ws.ID, teamID, userID, role)
 	if err != nil {
+		if errors.Is(err, service.ErrInvalidTeam) {
+			return response.Error(c, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
+		}
 		if errors.Is(err, service.ErrTeamNotFound) {
 			return response.NotFound(c, "Team")
 		}

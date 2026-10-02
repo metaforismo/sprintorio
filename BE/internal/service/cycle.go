@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/metaforismo/sprintorio/BE/internal/domain"
 	"github.com/metaforismo/sprintorio/BE/internal/dto"
 	"github.com/metaforismo/sprintorio/BE/internal/realtime"
 	"github.com/metaforismo/sprintorio/BE/internal/repository"
-	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -106,15 +106,25 @@ func (s *CycleService) Update(ctx context.Context, id uuid.UUID, req dto.UpdateC
 	if req.Status != nil {
 		cycle.Status = domain.CycleStatus(*req.Status)
 	}
-	if req.StartDate != nil {
-		t, err := time.Parse("2006-01-02", *req.StartDate)
-		if err == nil {
+	if req.StartDate.Set {
+		if req.StartDate.Value == nil {
+			cycle.StartDate = nil
+		} else {
+			t, err := time.Parse("2006-01-02", *req.StartDate.Value)
+			if err != nil {
+				return nil, fmt.Errorf("start_date must use YYYY-MM-DD")
+			}
 			cycle.StartDate = &t
 		}
 	}
-	if req.EndDate != nil {
-		t, err := time.Parse("2006-01-02", *req.EndDate)
-		if err == nil {
+	if req.EndDate.Set {
+		if req.EndDate.Value == nil {
+			cycle.EndDate = nil
+		} else {
+			t, err := time.Parse("2006-01-02", *req.EndDate.Value)
+			if err != nil {
+				return nil, fmt.Errorf("end_date must use YYYY-MM-DD")
+			}
 			cycle.EndDate = &t
 		}
 	}

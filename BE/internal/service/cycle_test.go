@@ -2,13 +2,14 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/metaforismo/sprintorio/BE/internal/domain"
 	"github.com/metaforismo/sprintorio/BE/internal/dto"
 	"github.com/metaforismo/sprintorio/BE/internal/realtime"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -238,4 +239,72 @@ func TestCycleService_Delete(t *testing.T) {
 
 	err := svc.Delete(ctx, cycleID)
 	assert.NoError(t, err)
+}
+
+// JSON null clears an existing date; an omitted PATCH field preserves it.
+func TestCycleService_UpdateDatePatch(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		payload   string
+		wantStart string
+		wantEnd   string
+	}{
+		{"omitted preserves dates", `{}`, "2026-04-01", "2026-04-14"},
+		{"null clears both dates", `{"start_date":null,"end_date":null}`, "", ""},
+		{"null clears only supplied date", `{"end_date":null}`, "2026-04-01", ""},
+		{"string replaces date", `{"start_date":"2026-04-02"}`, "2026-04-02", "2026-04-14"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := new(mockCycleRepo)
+			teamRepo, hub, notifSvc := newCycleTestDeps()
+			svc := NewCycleService(repo, teamRepo, hub, notifSvc)
+			start, _ := time.Parse("2006-01-02", "2026-04-01")
+			end, _ := time.Parse("2006-01-02", "2026-04-14")
+			cycle := &domain.Cycle{ID: uuid.New(), TeamID: uuid.New(), StartDate: &start, EndDate: &end}
+			var req dto.UpdateCycleRequest
+			if err := json.Unmarshal([]byte(tc.payload), &req); err != nil {
+				t.Fatal(err)
+			}
+			repo.On("GetByID", mock.Anything, cycle.ID).Return(cycle, nil).Once()
+			if tc.wantStart != "" && tc.wantEnd != "" {
+				repo.On("HasOverlap", mock.Anything, cycle.TeamID, mock.Anything, mock.Anything, mock.Anything).Return(false, nil).Once()
+			}
+			repo.On("Update", mock.Anything, mock.MatchedBy(func(saved *domain.Cycle) bool {
+				format := func(date *time.Time) string {
+					if date == nil {
+						return ""
+					}
+					return date.Format("2006-01-02")
+				}
+				return format(saved.StartDate) == tc.wantStart && format(saved.EndDate) == tc.wantEnd
+			})).Return(nil).Once()
+			_, err := svc.Update(context.Background(), cycle.ID, req)
+			assert.NoError(t, err)
+			repo.AssertExpectations(t)
+		})
+	}
+}
+
+func TestCycleService_UpdateRejectsInvalidDate(t *testing.T) {
+	for _, field := range []string{"start_date", "end_date"} {
+		t.Run(field, func(t *testing.T) {
+			repo := new(mockCycleRepo)
+			teamRepo, hub, notifSvc := newCycleTestDeps()
+			svc := NewCycleService(repo, teamRepo, hub, notifSvc)
+			start, _ := time.Parse("2006-01-02", "2026-04-01")
+			end, _ := time.Parse("2006-01-02", "2026-04-14")
+			cycle := &domain.Cycle{ID: uuid.New(), TeamID: uuid.New(), StartDate: &start, EndDate: &end}
+			var req dto.UpdateCycleRequest
+			if err := json.Unmarshal([]byte(`{"`+field+`":"2026-02-30"}`), &req); err != nil {
+				t.Fatal(err)
+			}
+			repo.On("GetByID", mock.Anything, cycle.ID).Return(cycle, nil).Once()
+			updated, err := svc.Update(context.Background(), cycle.ID, req)
+			assert.Nil(t, updated)
+			assert.EqualError(t, err, field+" must use YYYY-MM-DD")
+			repo.AssertNotCalled(t, "Update", mock.Anything, mock.Anything)
+			repo.AssertNotCalled(t, "HasOverlap", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+			repo.AssertExpectations(t)
+		})
+	}
 }

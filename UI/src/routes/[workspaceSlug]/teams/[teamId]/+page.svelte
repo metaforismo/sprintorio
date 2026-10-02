@@ -436,13 +436,16 @@
 			{#if layout === 'list'}
 				<Popover.Root bind:open={groupByOpen}>
 					<Popover.Trigger>
-						<button
-							class="flex items-center gap-1 rounded-md border border-[var(--app-border)] px-2 py-1 text-xs text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-secondary)]"
-							title={m['common.group_by']()}
-						>
-							<Layers size={12} />
-							{m['common.group']()}
-						</button>
+						{#snippet child({ props })}
+							<button
+								{...props}
+								class="flex items-center gap-1 rounded-md border border-[var(--app-border)] px-2 py-1 text-xs text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-secondary)]"
+								title={m['common.group_by']()}
+							>
+								<Layers size={12} />
+								{m['common.group']()}
+							</button>
+						{/snippet}
 					</Popover.Trigger>
 					<Popover.Content class="w-40 p-1" align="end">
 						{#each groupByOptions as opt}
@@ -478,9 +481,7 @@
 			{#if !issuesState.loading && issuesState.issues.length === 0}
 				<EmptyState
 					title="No issues found"
-					description={hasActiveFilters
-						? 'Try adjusting your filters'
-						: 'Create your first issue to get started'}
+					description={hasActiveFilters ? 'Try adjusting your filters' : 'Create your first issue to get started'}
 					action={{ label: 'New Issue', onclick: openCreateIssue }}
 				/>
 			{:else if issuesState.groupBy}
@@ -641,7 +642,7 @@
 			const created = await issuesState.create(slug, req);
 			showIssueCreatedToast(slug, created);
 		} catch (err: any) {
-			appToast.apiError(err, 'Failed to create issue');
+			throw err;
 		}
 	}}
 />

@@ -5,6 +5,10 @@
 	import { authState } from '$lib/features/auth/auth.state.svelte';
 	import { getWorkspace } from '$lib/api/workspaces';
 	import { listTeams, createTeam, deleteTeam, leaveTeam } from '$lib/api/teams';
+	import { listIssues } from '$lib/api/issues';
+	import { experienceCopy } from '$lib/features/workspaces/experience-copy';
+	import { rememberWorkspace } from '$lib/utils/workspace-navigation';
+	import { Loader2, Check } from 'lucide-svelte';
 	import { listProjects } from '$lib/api/projects';
 	import { listLabels } from '$lib/api/labels';
 	import { listMembers } from '$lib/api/members';
@@ -58,10 +62,19 @@
 	let confirmSubmitting = $state(false);
 	let authReady = $state(false);
 	let workspaceLoadId = 0;
-	const isMobile = new IsMobile();
-	const terminalDock = setTerminalDock();
+	let loadError = $state(false);
+	let navigationReady = $state(false);
+	let hasWork = $state<boolean | null>(null);
+	let guideDismissed = $state(false);
+	let createIssueAfterTeam = $state(false);
+	const copy = $derived(experienceCopy[getLocale() === 'it' ? 'it' : 'en']);
 	const slug = $derived(page.params.workspaceSlug ?? '');
 	const isSettings = $derived(page.url.pathname.includes('/settings'));
+	const showStarter = $derived(
+		navigationReady && !loadError && hasWork === false && !guideDismissed && page.url.pathname === `/${slug}/inbox`
+	);
+	const isMobile = new IsMobile();
+	const terminalDock = setTerminalDock();
 
 	$effect(() => {
 		terminalDock.setWorkspace(slug);
@@ -69,33 +82,53 @@
 
 	async function loadWorkspaceData(workspaceSlug: string) {
 		const loadId = ++workspaceLoadId;
-		try {
-			const workspaceRequest = getWorkspace(workspaceSlug);
-			const teamsRequest = listTeams(workspaceSlug);
-			const renderRequest = Promise.all([workspaceRequest, teamsRequest]).then(([ws, t]) => {
-				if (loadId !== workspaceLoadId) return;
-				workspace = ws;
-				teams = t;
-				sidebarState.teams = t;
-			});
-			const navigationRequest = Promise.all([
-				listProjects(workspaceSlug),
-				listLabels(workspaceSlug),
-				listMembers(workspaceSlug),
-				listViews(workspaceSlug),
-				listNotifications()
-			]).then(([p, l, m, v, notifRes]) => {
-				if (loadId !== workspaceLoadId) return;
-				projects = p;
-				sidebarState.projects = p;
-				labels = l;
-				members = m;
-				views = v;
-				unreadCount = notifRes.unread_count;
-			});
-			await Promise.all([renderRequest, navigationRequest]);
-		} catch {
-			if (loadId === workspaceLoadId) goto('/login');
+		loadError = false;
+		const results = await Promise.allSettled([
+			getWorkspace(workspaceSlug).then((value) => {
+				if (loadId === workspaceLoadId) workspace = value;
+				return value;
+			}),
+			listTeams(workspaceSlug).then((value) => {
+				if (loadId === workspaceLoadId) {
+					teams = value;
+					sidebarState.teams = value;
+				}
+				return value;
+			}),
+			listProjects(workspaceSlug),
+			listLabels(workspaceSlug),
+			listMembers(workspaceSlug),
+			listViews(workspaceSlug),
+			listNotifications()
+		]);
+		if (loadId !== workspaceLoadId) return;
+		const [ws, t, p, l, memberResult, v, notifications] = results;
+		if (ws.status === 'fulfilled') {
+			workspace = ws.value;
+			rememberWorkspace(workspaceSlug);
+		}
+		if (t.status === 'fulfilled') {
+			teams = t.value;
+			sidebarState.teams = teams;
+		}
+		if (p.status === 'fulfilled') {
+			projects = p.value;
+			sidebarState.projects = projects;
+		}
+		if (l.status === 'fulfilled') labels = l.value;
+		if (memberResult.status === 'fulfilled') members = memberResult.value;
+		if (v.status === 'fulfilled') views = v.value;
+		if (notifications.status === 'fulfilled') unreadCount = notifications.value.unread_count;
+		loadError = results.some((result) => result.status === 'rejected');
+		navigationReady = ws.status === 'fulfilled' && t.status === 'fulfilled';
+		if (!loadError && teams.length === 0) hasWork = false;
+		else if (!loadError && hasWork === null && page.url.pathname === `/${workspaceSlug}/inbox`) {
+			try {
+				const issues = await listIssues(workspaceSlug, { per_page: '1' });
+				if (loadId === workspaceLoadId) hasWork = issues.data.length > 0;
+			} catch {
+				/* Do not infer an empty workspace from a failed request. */
+			}
 		}
 	}
 
@@ -123,43 +156,69 @@
 			issuesState.load(slug, issuesState.filters);
 		}
 		if (resources.includes('workspace')) {
-			getWorkspace(slug).then((ws) => { workspace = ws; }).catch(() => {});
+			getWorkspace(slug)
+				.then((ws) => {
+					workspace = ws;
+				})
+				.catch(() => {});
 		}
 		if (resources.includes('teams')) {
-			listTeams(slug).then((t) => {
-				teams = t;
-				sidebarState.teams = t;
-			}).catch(() => {});
+			listTeams(slug)
+				.then((t) => {
+					teams = t;
+					sidebarState.teams = t;
+				})
+				.catch(() => {});
 		}
 		if (resources.includes('projects')) {
-			listProjects(slug).then((p) => {
-				projects = p;
-				sidebarState.projects = p;
-			}).catch(() => {});
+			listProjects(slug)
+				.then((p) => {
+					projects = p;
+					sidebarState.projects = p;
+				})
+				.catch(() => {});
 		}
 		if (resources.includes('labels')) {
-			listLabels(slug).then((l) => { labels = l; }).catch(() => {});
+			listLabels(slug)
+				.then((l) => {
+					labels = l;
+				})
+				.catch(() => {});
 		}
 		if (resources.includes('members')) {
-			listMembers(slug).then((m) => { members = m; }).catch(() => {});
+			listMembers(slug)
+				.then((m) => {
+					members = m;
+				})
+				.catch(() => {});
 		}
 		if (resources.includes('views')) {
 			reloadViews(slug);
 		}
 		if (resources.includes('notifications')) {
-			listNotifications().then((r) => { unreadCount = r.unread_count; }).catch(() => {});
+			listNotifications()
+				.then((r) => {
+					unreadCount = r.unread_count;
+				})
+				.catch(() => {});
 		}
 	}
 
-	onMount(async () => {
+	async function initialize() {
+		loadError = false;
 		await authState.init();
+		if (authState.initError) {
+			loadError = true;
+			return;
+		}
 		if (!authState.authenticated) {
 			goto('/login');
 			return;
 		}
 		void preferencesState.syncRemote();
 		authReady = true;
-	});
+	}
+	onMount(initialize);
 
 	// Re-fetch all data when workspace slug changes (e.g. workspace switch)
 	let loadedSlug = '';
@@ -167,6 +226,11 @@
 		if (authReady && slug && slug !== loadedSlug) {
 			loadedSlug = slug;
 			workspace = null;
+			navigationReady = false;
+			showMobileSidebar = false;
+			hasWork = null;
+			guideDismissed = false;
+			createIssueAfterTeam = false;
 			teams = [];
 			projects = [];
 			labels = [];
@@ -181,42 +245,75 @@
 	// Full shortcut definitions
 	const shortcutDefs = $derived<ShortcutDef[]>([
 		// Navigation sequences (G + key)
-		{ keys: ['g', 'i'], handler: () => goto(`/${slug}/inbox`), label: m['sidebar.go_inbox'](), category: m['sidebar.navigation']() },
-		{ keys: ['g', 'm'], handler: () => goto(`/${slug}/my-issues`), label: m['sidebar.go_my_issues'](), category: m['sidebar.navigation']() },
-		{ keys: ['g', 'a'], handler: () => goto(`/${slug}/insights`), label: m['sidebar.go_insights'](), category: m['sidebar.navigation']() },
-		{ keys: ['g', 'p'], handler: () => goto(`/${slug}/projects`), label: m['sidebar.go_projects'](), category: m['sidebar.navigation']() },
-		{ keys: ['g', 's'], handler: () => goto(`/${slug}/settings`), label: m['sidebar.go_settings'](), category: m['sidebar.navigation']() },
+		{
+			keys: ['g', 'i'],
+			handler: () => goto(`/${slug}/inbox`),
+			label: m['sidebar.go_inbox'](),
+			category: m['sidebar.navigation']()
+		},
+		{
+			keys: ['g', 'm'],
+			handler: () => goto(`/${slug}/my-issues`),
+			label: m['sidebar.go_my_issues'](),
+			category: m['sidebar.navigation']()
+		},
+		{
+			keys: ['g', 'a'],
+			handler: () => goto(`/${slug}/insights`),
+			label: m['sidebar.go_insights'](),
+			category: m['sidebar.navigation']()
+		},
+		{
+			keys: ['g', 'p'],
+			handler: () => goto(`/${slug}/projects`),
+			label: m['sidebar.go_projects'](),
+			category: m['sidebar.navigation']()
+		},
+		{
+			keys: ['g', 's'],
+			handler: () => goto(`/${slug}/settings`),
+			label: m['sidebar.go_settings'](),
+			category: m['sidebar.navigation']()
+		},
 		// Actions
 		{
 			key: 'c',
-			handler: () => {
-				if (teams.length === 0) {
-					showCreateTeam = true;
-				} else {
-					// Ensure statuses are loaded for the target team
-					const targetTeam = getCreateTeamId();
-					if (targetTeam) {
-						teamStatusesState.load(slug, targetTeam);
-					}
-					showCreateIssue = true;
-				}
-			},
+			handler: openCreateIssue,
 			label: m['sidebar.create_issue'](),
 			category: m['sidebar.actions']()
 		},
-		{ key: 'k', meta: true, handler: () => (showCommandPalette = !showCommandPalette), label: m['sidebar.command_palette'](), category: m['sidebar.actions']() },
-		{ key: '/', handler: () => (showCommandPalette = true), label: m['sidebar.search'](), category: m['sidebar.actions']() },
-		{ key: '?', shift: true, handler: () => (showShortcutHelp = !showShortcutHelp), label: m['sidebar.keyboard_shortcuts'](), category: m['sidebar.help']() },
+		{
+			key: 'k',
+			meta: true,
+			handler: () => (showCommandPalette = !showCommandPalette),
+			label: m['sidebar.command_palette'](),
+			category: m['sidebar.actions']()
+		},
+		{
+			key: '/',
+			handler: () => (showCommandPalette = true),
+			label: m['sidebar.search'](),
+			category: m['sidebar.actions']()
+		},
+		{
+			key: '?',
+			shift: true,
+			handler: () => (showShortcutHelp = !showShortcutHelp),
+			label: m['sidebar.keyboard_shortcuts'](),
+			category: m['sidebar.help']()
+		}
 	]);
 
-	const shortcutEngine = createShortcutEngine(shortcutDefs);
+	const shortcutEngine = createShortcutEngine(() => shortcutDefs);
 
 	onMount(() => {
 		document.addEventListener('keydown', shortcutEngine.handler);
 		window.addEventListener('app:refresh', handleAppRefresh);
+		window.addEventListener('sprintorio:create-issue', openCreateIssue);
 		return () => {
 			document.removeEventListener('keydown', shortcutEngine.handler);
 			window.removeEventListener('app:refresh', handleAppRefresh);
+			window.removeEventListener('sprintorio:create-issue', openCreateIssue);
 		};
 	});
 
@@ -226,8 +323,15 @@
 			teams = [...teams, team];
 			sidebarState.teams = teams;
 			appToast.success(m['sidebar.team_created']());
+			if (createIssueAfterTeam) {
+				createIssueAfterTeam = false;
+				await teamStatusesState.load(slug, team.id);
+				showCreateIssue = true;
+			} else {
+				await goto(`/${slug}/teams/${team.id}`);
+			}
 		} catch (err: any) {
-			appToast.apiError(err, m['sidebar.failed_create_team']());
+			throw err;
 		}
 	}
 
@@ -273,14 +377,19 @@
 			confirmTeam = null;
 			confirmAction = null;
 		} catch (err: any) {
-			appToast.apiError(err, confirmAction === 'leave' ? m['sidebar.failed_leave_team']() : m['sidebar.failed_delete_team']());
+			appToast.apiError(
+				err,
+				confirmAction === 'leave' ? m['sidebar.failed_leave_team']() : m['sidebar.failed_delete_team']()
+			);
 		} finally {
 			confirmSubmitting = false;
 		}
 	}
 
 	function openCreateIssue() {
+		if (!navigationReady) return;
 		if (teams.length === 0) {
+			createIssueAfterTeam = true;
 			showCreateTeam = true;
 		} else {
 			const targetTeam = getCreateTeamId();
@@ -318,13 +427,16 @@
 	function getCreateStatusId(): string | undefined {
 		const value = singleFilterValue(getActiveIssueFilters().status);
 		if (!value) return undefined;
-		return teamStatusesState.statusById.get(value)?.id ?? teamStatusesState.statusOrder.find((status) => status.slug === value)?.id;
+		return (
+			teamStatusesState.statusById.get(value)?.id ??
+			teamStatusesState.statusOrder.find((status) => status.slug === value)?.id
+		);
 	}
 
 	function getCreatePriority(): IssuePriority | undefined {
 		const value = singleFilterValue(getActiveIssueFilters().priority);
 		const priority = value === undefined ? NaN : Number(value);
-		return [0, 1, 2, 3, 4].includes(priority) ? priority as IssuePriority : undefined;
+		return [0, 1, 2, 3, 4].includes(priority) ? (priority as IssuePriority) : undefined;
 	}
 
 	function getCreateProjectId(): string | null | undefined {
@@ -489,7 +601,10 @@
 					{unreadCount}
 					{slug}
 					oncreateissue={openCreateIssue}
-					oncreateteam={() => (showCreateTeam = true)}
+					oncreateteam={() => {
+						createIssueAfterTeam = false;
+						showCreateTeam = true;
+					}}
 					onleaveteam={handleLeaveTeam}
 					ondeleteteam={handleDeleteTeam}
 					onsearch={() => (showCommandPalette = true)}
@@ -512,27 +627,55 @@
 						{slug}
 						mobile
 						oncreateissue={openCreateIssue}
-						oncreateteam={() => { showCreateTeam = true; showMobileSidebar = false; }}
-						onleaveteam={(team) => { showMobileSidebar = false; handleLeaveTeam(team); }}
-						ondeleteteam={(team) => { showMobileSidebar = false; handleDeleteTeam(team); }}
-					onsearch={() => { showCommandPalette = true; showMobileSidebar = false; }}
-					onnavigate={() => (showMobileSidebar = false)}
-					onshortcutshelp={() => { showMobileSidebar = false; showShortcutHelp = true; }}
-				/>
+						oncreateteam={() => {
+							createIssueAfterTeam = false;
+							showCreateTeam = true;
+							showMobileSidebar = false;
+						}}
+						onleaveteam={(team) => {
+							showMobileSidebar = false;
+							handleLeaveTeam(team);
+						}}
+						ondeleteteam={(team) => {
+							showMobileSidebar = false;
+							handleDeleteTeam(team);
+						}}
+						onsearch={() => {
+							showCommandPalette = true;
+							showMobileSidebar = false;
+						}}
+						onnavigate={() => (showMobileSidebar = false)}
+						onshortcutshelp={() => {
+							showMobileSidebar = false;
+							showShortcutHelp = true;
+						}}
+					/>
 				</Sheet.Content>
 			</Sheet.Root>
 		{/if}
 		<main class="flex min-w-0 flex-1 flex-col overflow-hidden">
 			{#if !isSettings}
-				<div class="flex h-12 shrink-0 items-center justify-between border-b border-[var(--app-border)] bg-[var(--color-bg)] px-3 md:hidden">
+				<div
+					class="flex h-12 shrink-0 items-center justify-between border-b border-[var(--app-border)] bg-[var(--color-bg)] px-3 md:hidden"
+				>
 					<div class="flex min-w-0 items-center gap-2">
-						<Button variant="ghost" size="icon-lg" onclick={() => (showMobileSidebar = true)} aria-label={m['sidebar.open_navigation']()}>
+						<Button
+							variant="ghost"
+							size="icon-lg"
+							onclick={() => (showMobileSidebar = true)}
+							aria-label={m['sidebar.open_navigation']()}
+						>
 							<Menu size={18} />
 						</Button>
 						<span class="truncate text-sm font-medium text-[var(--color-text-primary)]">{workspace.name}</span>
 					</div>
 					<div class="flex shrink-0 items-center gap-1">
-						<Button variant="ghost" size="icon-lg" onclick={() => (showCommandPalette = true)} aria-label={m['sidebar.search']()}>
+						<Button
+							variant="ghost"
+							size="icon-lg"
+							onclick={() => (showCommandPalette = true)}
+							aria-label={m['sidebar.search']()}
+						>
 							<Search size={18} />
 						</Button>
 						<Button variant="ghost" size="icon-lg" onclick={openCreateIssue} aria-label={m['sidebar.create_issue']()}>
@@ -540,6 +683,51 @@
 						</Button>
 					</div>
 				</div>
+			{/if}
+			{#if loadError}
+				<div
+					class="flex flex-wrap items-center gap-3 border-b border-[var(--app-border)] px-4 py-2 text-xs"
+					role="alert"
+				>
+					<span>{copy.failed}</span><Button variant="outline" size="sm" onclick={() => loadWorkspaceData(slug)}
+						>{copy.retry}</Button
+					>
+				</div>
+			{:else if showStarter && !isSettings}
+				<section
+					aria-label={copy.start}
+					class="border-b border-[var(--app-border)] bg-[var(--color-bg-secondary)] px-4 py-4 sm:px-6"
+				>
+					<div class="flex items-start justify-between gap-3">
+						<div>
+							<h2 class="text-sm font-medium">{copy.start}</h2>
+							<p class="mt-1 text-xs text-[var(--color-text-secondary)]">
+								{teams.length === 0 ? copy.detail : copy.issueDetail}
+							</p>
+						</div>
+						<Button variant="ghost" size="sm" onclick={() => (guideDismissed = true)}>{copy.later}</Button>
+					</div>
+					<div class="mt-3 flex flex-wrap items-center gap-2">
+						{#if teams.length === 0}<Button
+								size="sm"
+								onclick={() => {
+									createIssueAfterTeam = true;
+									showCreateTeam = true;
+								}}>{copy.team}</Button
+							>
+						{:else}<span class="inline-flex items-center gap-1 text-xs text-[var(--color-text-secondary)]"
+								><Check size={14} />{copy.teamDone}</span
+							><Button size="sm" onclick={openCreateIssue}>{copy.issue}</Button>{/if}
+						{#if projects.length === 0}<Button variant="outline" size="sm" onclick={() => goto(`/${slug}/projects`)}
+								>{copy.project}</Button
+							>{/if}
+						{#if members.length < 2 && ['owner', 'admin'].includes(workspace.current_user_role)}<Button
+								variant="outline"
+								size="sm"
+								onclick={() => goto(`/${slug}/settings/members`)}>{copy.members}</Button
+							>{/if}
+					</div>
+				</section>
 			{/if}
 			<div class="min-h-0 flex-1 overflow-auto">
 				{@render children()}
@@ -569,17 +757,15 @@
 		onsubmit={async (req) => {
 			try {
 				const created = await issuesState.create(slug, req);
+				hasWork = true;
 				showIssueCreatedToast(slug, created);
 			} catch (err: any) {
-				appToast.apiError(err, m['sidebar.failed_create_issue']());
+				throw err;
 			}
 		}}
 	/>
 
-	<CreateTeamDialog
-		bind:open={showCreateTeam}
-		onsubmit={handleCreateTeam}
-	/>
+	<CreateTeamDialog bind:open={showCreateTeam} onsubmit={handleCreateTeam} />
 
 	<Dialog.Root bind:open={confirmOpen}>
 		<Dialog.Content class="sm:max-w-[420px] border-[var(--app-border)] bg-[var(--color-bg-secondary)]">
@@ -596,19 +782,27 @@
 				</Dialog.Description>
 			</Dialog.Header>
 			<Dialog.Footer>
-				<Button variant="outline" onclick={() => (confirmOpen = false)} disabled={confirmSubmitting}>{m['sidebar.cancel']()}</Button>
+				<Button variant="outline" onclick={() => (confirmOpen = false)} disabled={confirmSubmitting}
+					>{m['sidebar.cancel']()}</Button
+				>
 				<Button variant="destructive" onclick={confirmTeamAction} disabled={confirmSubmitting}>
-					{confirmSubmitting ? m['sidebar.working']() : confirmAction === 'delete' ? m['sidebar.delete_team_title']() : m['sidebar.leave_team_title']()}
+					{confirmSubmitting
+						? m['sidebar.working']()
+						: confirmAction === 'delete'
+							? m['sidebar.delete_team_title']()
+							: m['sidebar.leave_team_title']()}
 				</Button>
 			</Dialog.Footer>
 		</Dialog.Content>
 	</Dialog.Root>
 
-	<ShortcutHelp
-		bind:open={showShortcutHelp}
-		shortcuts={shortcutDefs}
-	/>
+	<ShortcutHelp bind:open={showShortcutHelp} shortcuts={shortcutDefs} />
 {:else}
-	<div class="flex h-screen items-center justify-center">
+	<div class="flex min-h-dvh flex-col items-center justify-center gap-3" role="status">
+		{#if loadError}<p class="text-sm">{copy.failed}</p>
+			<Button onclick={() => (authReady ? loadWorkspaceData(slug) : initialize())}>{copy.retry}</Button>
+		{:else}<Loader2 size={20} class="animate-spin text-[var(--color-text-tertiary)]" /><span class="sr-only"
+				>{copy.loading}</span
+			>{/if}
 	</div>
 {/if}
