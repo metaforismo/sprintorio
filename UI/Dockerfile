@@ -14,8 +14,9 @@ FROM golang:1.26.6-alpine AS caddy-builder
 RUN apk add --no-cache git
 RUN go install github.com/caddyserver/xcaddy/cmd/xcaddy@v0.4.6
 RUN xcaddy build v2.11.4 \
-    --with google.golang.org/grpc@v1.82.1 \
-    --replace golang.org/x/text=golang.org/x/text@v0.39.0
+    --with google.golang.org/grpc@v1.83.2 \
+    --replace golang.org/x/crypto=golang.org/x/crypto@v0.55.0 \
+    --replace golang.org/x/text=golang.org/x/text@v0.41.0
 
 FROM alpine:3.23
 RUN apk update && apk upgrade --no-cache
