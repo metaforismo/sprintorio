@@ -76,6 +76,24 @@ jobs:
       - name: Show coverage summary
         run: go tool cover -func=coverage.out
 
+      - name: Compile agent client for supported platforms
+        run: |
+          mkdir -p agent-binaries
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
+            target_os=${target%/*}
+            target_arch=${target#*/}
+            extension=
+            if [ "$target_os" = windows ]; then extension=.exe; fi
+            CGO_ENABLED=0 GOOS=$target_os GOARCH=$target_arch go build -trimpath -o agent-binaries/sprintorio-$target_os-$target_arch$extension ./cmd/sprintorio
+          done
+
+      - name: Upload agent client binaries
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: sprintorio-agent-clients
+          path: BE/agent-binaries
+          retention-days: 14
+
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v7.0.1
         with:

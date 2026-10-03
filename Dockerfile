@@ -21,7 +21,8 @@ WORKDIR /app
 COPY BE/go.mod BE/go.sum ./
 RUN go mod download
 COPY BE/ .
-RUN CGO_ENABLED=0 go build -o server ./cmd/server
+RUN CGO_ENABLED=0 go build -o server ./cmd/server && \
+    CGO_ENABLED=0 go build -o sprintorio ./cmd/sprintorio
 
 # Stage 4: Final image
 FROM alpine:3.23
@@ -29,6 +30,7 @@ RUN apk update && apk upgrade --no-cache && apk add --no-cache ca-certificates
 WORKDIR /app
 COPY --from=caddy-builder /go/caddy /usr/bin/caddy
 COPY --from=be-builder /app/server .
+COPY --from=be-builder /app/sprintorio /usr/local/bin/sprintorio
 COPY --from=be-builder /app/migrations ./migrations
 COPY --from=ui-builder /app/build /srv
 RUN mkdir -p /app/uploads

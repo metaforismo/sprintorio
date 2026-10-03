@@ -17,7 +17,8 @@
 		CircleDot,
 		ChevronDown,
 		Menu,
-		RefreshCw
+		RefreshCw,
+		Bot
 	} from 'lucide-svelte';
 	import { GithubLogoIcon } from 'phosphor-svelte';
 	import type { Snippet } from 'svelte';
@@ -29,6 +30,7 @@
 	import { authState } from '$lib/features/auth/auth.state.svelte';
 	import { demoMode } from '$lib/demo';
 	import { m } from '$lib/paraglide/messages.js';
+	import { agentCopy } from '$lib/features/workspaces/agent-copy';
 	import { getLocale, setLocale } from '$lib/paraglide/runtime.js';
 
 	function slideFade(node: HTMLElement, params: { duration?: number } = {}) {
@@ -95,6 +97,7 @@
 			label: m['settings.nav.workspace'](),
 			items: [
 				{ label: m['settings.nav.general'](), href: `/${slug}/settings`, icon: Settings, exact: true },
+				{ label: agentCopy[getLocale() === 'it' ? 'it' : 'en'].title, href: `/${slug}/settings/agents`, icon: Bot },
 				{ label: m['settings.nav.members'](), href: `/${slug}/settings/members`, icon: Users },
 				{ label: m['settings.nav.labels'](), href: `/${slug}/settings/labels`, icon: Tag },
 				{ label: m['settings.nav.webhooks'](), href: `/${slug}/settings/webhooks`, icon: Webhook },
@@ -135,8 +138,9 @@
 	<div class="flex h-[49px] items-center gap-2 px-3">
 		<a
 			href="/{slug}/my-issues"
-			class="rounded-md p-1 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
+			class="flex min-h-11 min-w-11 items-center justify-center rounded-md p-1 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
 			title={m['settings.back']()}
+			aria-label={m['settings.back']()}
 		>
 			<ArrowLeft size={16} />
 		</a>
@@ -155,7 +159,8 @@
 							{@const Icon = section.icon}
 							<a
 								href={section.href}
-								class="flex items-center gap-2 rounded-md px-2 py-1 text-sm {(
+								aria-current={(section.exact ? currentPath === section.href : isActive(section.href)) ? 'page' : undefined}
+								class="flex min-h-11 items-center gap-2 rounded-md px-2 py-1 text-sm {(
 									section.exact ? currentPath === section.href : isActive(section.href)
 								)
 									? 'bg-[var(--color-bg-hover)]/50 text-[var(--color-text-primary)]'
@@ -177,7 +182,8 @@
 					{@const expanded = expandedTeams.has(team.id)}
 					<button
 						type="button"
-						class="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-left text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
+						aria-expanded={expanded}
+						class="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-left text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
 						onclick={() => toggleTeam(team.id)}
 					>
 						<ChevronDown
@@ -191,7 +197,7 @@
 						<div transition:slideFade>
 							<a
 								href="/{slug}/settings/teams/{team.id}"
-								class="ml-7 flex items-center gap-2 rounded-md px-2 py-1 text-xs {isActive(
+								class="ml-7 flex min-h-11 items-center gap-2 rounded-md px-2 py-1 text-xs {isActive(
 									`/${slug}/settings/teams/${team.id}`
 								) && !isActive(`/${slug}/settings/teams/${team.id}/statuses`)
 									? 'bg-[var(--color-bg-hover)]/50 text-[var(--color-text-primary)]'
@@ -202,7 +208,7 @@
 							</a>
 							<a
 								href="/{slug}/settings/teams/{team.id}/statuses"
-								class="ml-7 flex items-center gap-2 rounded-md px-2 py-1 text-xs {isActive(
+								class="ml-7 flex min-h-11 items-center gap-2 rounded-md px-2 py-1 text-xs {isActive(
 									`/${slug}/settings/teams/${team.id}/statuses`
 								)
 									? 'bg-[var(--color-bg-hover)]/50 text-[var(--color-text-primary)]'
@@ -227,6 +233,7 @@
 		<Button
 			variant="ghost"
 			size="icon-lg"
+			class="min-h-11 min-w-11"
 			onclick={() => (showMobileNav = true)}
 			aria-label={m['settings.open_menu']()}
 		>

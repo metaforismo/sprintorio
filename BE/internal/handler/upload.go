@@ -177,6 +177,13 @@ func (h *UploadHandler) PublicAsset(c echo.Context) error {
 }
 
 func allowedUploadType(detectedType, ext string) (string, bool) {
+	// Detection can include charset parameters; policy compares the base media
+	// type while still requiring an extension compatible with detected bytes.
+	mediaType, _, err := mime.ParseMediaType(detectedType)
+	if err != nil {
+		return "", false
+	}
+	detectedType = mediaType
 	if detectedType == "text/plain" {
 		switch ext {
 		case ".csv":

@@ -56,6 +56,8 @@ func main() {
 	userRepo := repository.NewUserRepository(db)
 	refreshRepo := repository.NewRefreshTokenRepository(db)
 	workspaceRepo := repository.NewWorkspaceRepository(db)
+	agentTokenSvc := service.NewAgentTokenService(repository.NewAgentTokenRepository(db))
+	agentTokenH := handler.NewAgentTokenHandler(agentTokenSvc)
 	teamRepo := repository.NewTeamRepository(db)
 	issueRepo := repository.NewIssueRepository(db)
 	labelRepo := repository.NewLabelRepository(db)
@@ -217,7 +219,7 @@ func main() {
 	e.GET("/api/public/assets/:token", uploadH.PublicAsset, mw.RateLimit(10, 20))
 
 	// Authenticated routes
-	api := e.Group("/api", mw.Auth(cfg.JWTSecret))
+	api := e.Group("/api", mw.AuthWithAgentTokens(cfg.JWTSecret, agentTokenSvc))
 
 	// User
 	api.GET("/auth/me", authH.Me)
@@ -234,7 +236,7 @@ func main() {
 	api.POST("/workspaces/import", workspaceTransferH.Import)
 
 	// Workspace-scoped routes
-	ws := api.Group("/workspaces/:slug", mw.WorkspaceMembership(workspaceRepo), mw.TeamResourceScope(teamRepo, teamStatusRepo, cycleRepo))
+	ws := api.Group("/workspaces/:slug", mw.WorkspaceMembership(workspaceRepo), mw.AgentTokenWorkspaceAccess(), mw.WorkspaceResourceScope(repository.NewWorkspaceResourceRepository(db)), mw.TeamResourceScope(teamRepo, teamStatusRepo, cycleRepo))
 	ws.GET("", workspaceH.Get)
 	ws.PATCH("", workspaceH.Update, mw.RequireOwner())
 	ws.DELETE("", workspaceH.Delete, mw.RequireOwner())
@@ -243,6 +245,11 @@ func main() {
 	ws.GET("/members", workspaceH.ListMembers)
 	ws.PATCH("/members/:userId", workspaceH.UpdateMemberRole, mw.RequirePermission("member:invite"))
 	ws.DELETE("/members/:userId", workspaceH.RemoveMember, mw.RequirePermission("member:invite"))
+
+	// Personal credentials are JWT-session only; agent auth rejects these routes.
+	ws.GET("/agent-tokens", agentTokenH.List)
+	ws.POST("/agent-tokens", agentTokenH.Create, mw.RateLimit(1, 5))
+	ws.DELETE("/agent-tokens/:id", agentTokenH.Revoke)
 
 	// Teams
 	ws.GET("/teams", teamH.List)
@@ -322,10 +329,10 @@ func main() {
 
 	// Views
 	ws.GET("/views", viewH.List)
-	ws.POST("/views", viewH.Create)
+	ws.POST("/views", viewH.Create, mw.RequirePermission(domain.PermViewManage))
 	ws.GET("/views/:id", viewH.Get)
-	ws.PATCH("/views/:id", viewH.Update)
-	ws.DELETE("/views/:id", viewH.Delete)
+	ws.PATCH("/views/:id", viewH.Update, mw.RequirePermission(domain.PermViewManage))
+	ws.DELETE("/views/:id", viewH.Delete, mw.RequirePermission(domain.PermViewManage))
 
 	// Analytics
 	ws.GET("/analytics/overview", analyticsH.Overview)

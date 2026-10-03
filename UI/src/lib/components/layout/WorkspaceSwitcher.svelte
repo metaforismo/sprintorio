@@ -24,6 +24,8 @@
 
 	let open = $state(false);
 	let showCreateWorkspace = $state(false);
+	let workspaceNameInput = $state<HTMLInputElement | null>(null);
+	let workspaceTrigger = $state<HTMLButtonElement | null>(null);
 	let workspaces = $state<Workspace[]>([]);
 	let newWorkspaceName = $state('');
 	let newWorkspaceSlug = $state('');
@@ -93,6 +95,7 @@
 
 <Popover.Root bind:open>
 	<Popover.Trigger
+		bind:ref={workspaceTrigger}
 		aria-label={m['sidebar.workspaces']()}
 		class="flex w-full min-w-0 items-center gap-2 rounded-md px-1 py-0.5 hover:bg-[var(--color-bg-hover)] max-md:min-h-11"
 	>
@@ -106,7 +109,13 @@
 		</span>
 		<ChevronsUpDown size={14} class="shrink-0 text-[var(--color-text-tertiary)]" />
 	</Popover.Trigger>
-	<Popover.Content class="w-56 p-1" align="start">
+	<Popover.Content
+		class="w-56 p-1"
+		align="start"
+		onCloseAutoFocus={(event) => {
+			if (showCreateWorkspace) event.preventDefault();
+		}}
+	>
 		<div class="px-2 py-1">
 			<span class="text-[10px] font-medium uppercase text-[var(--color-text-tertiary)]"
 				>{m['sidebar.workspaces']()}</span
@@ -145,7 +154,17 @@
 </Popover.Root>
 
 <Dialog.Root bind:open={showCreateWorkspace}>
-	<Dialog.Content class="sm:max-w-md border-[var(--app-border)] bg-[var(--color-bg-secondary)]">
+	<Dialog.Content
+		class="sm:max-w-md border-[var(--app-border)] bg-[var(--color-bg-secondary)]"
+		onOpenAutoFocus={(event) => {
+			event.preventDefault();
+			workspaceNameInput?.focus();
+		}}
+		onCloseAutoFocus={(event) => {
+			event.preventDefault();
+			workspaceTrigger?.focus();
+		}}
+	>
 		<Dialog.Header>
 			<Dialog.Title>{m['sidebar.create_workspace']()}</Dialog.Title>
 			<Dialog.Description>{m['sidebar.create_workspace_desc']()}</Dialog.Description>
@@ -158,6 +177,7 @@
 				>
 				<input
 					id="workspace-name"
+					bind:this={workspaceNameInput}
 					type="text"
 					bind:value={newWorkspaceName}
 					oninput={handleNameInput}

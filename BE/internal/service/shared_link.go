@@ -92,7 +92,7 @@ func (s *SharedLinkService) Create(ctx context.Context, workspaceID, userID uuid
 			return nil, fmt.Errorf("scope_id is required for team scope")
 		}
 		team, err := s.teamRepo.GetByID(ctx, *scopeID)
-		if err != nil || team == nil {
+		if err != nil || team == nil || team.WorkspaceID != workspaceID {
 			return nil, fmt.Errorf("team not found")
 		}
 	case domain.SharedLinkScopeProject:
@@ -100,7 +100,7 @@ func (s *SharedLinkService) Create(ctx context.Context, workspaceID, userID uuid
 			return nil, fmt.Errorf("scope_id is required for project scope")
 		}
 		project, err := s.projectRepo.GetByID(ctx, *scopeID)
-		if err != nil || project == nil {
+		if err != nil || project == nil || project.WorkspaceID != workspaceID {
 			return nil, fmt.Errorf("project not found")
 		}
 	case domain.SharedLinkScopeView:
@@ -108,7 +108,7 @@ func (s *SharedLinkService) Create(ctx context.Context, workspaceID, userID uuid
 			return nil, fmt.Errorf("scope_id is required for view scope")
 		}
 		view, err := s.viewRepo.GetByID(ctx, *scopeID)
-		if err != nil || view == nil {
+		if err != nil || view == nil || view.WorkspaceID != workspaceID || (!view.IsShared && view.CreatorID != userID) {
 			return nil, fmt.Errorf("view not found")
 		}
 	default:

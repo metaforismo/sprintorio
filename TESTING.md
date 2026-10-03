@@ -24,6 +24,24 @@ go tool cover -func=coverage.out
 
 The suite checks persisted plans, workspace isolation, concurrent versioned saves, project metadata/date validation, nullable updates, team/status rollback, nested team-resource scope, migration behavior, and workspace export/import. Import keeps local milestone/test IDs intact and remaps application asset URLs. Version conflicts return HTTP 409 instead of silently overwriting another save.
 
+## Agent clients and MCP
+
+```sh
+cd BE
+go test ./internal/agentclient ./cmd/sprintorio -race -count=1
+go test ./internal/middleware ./internal/service ./internal/repository -race -count=1
+```
+
+The client suite uses local HTTP fixtures and a child process with real stdin/stdout. It checks compact/explicit-field output, pagination, strict operation inputs, validation before writes, delivery conflicts, credential redaction, redirect refusal, message/body limits, file upload/export, JSON-RPC lifecycle, stdio hygiene, remote caller authorization, exact Origin allowlists and formatted HTTP JSON. Its measured three-tool catalogue is 879 JSON bytes; byte size is not a tokenizer-specific token count.
+
+Backend tests separately cover agent-token scope, expiry/revocation, current workspace roles and cross-workspace references. Database-backed tests still require the disposable `DATABASE_URL` above. A fixture result does not establish a real-account connection.
+
+For a real API smoke, use a disposable workspace: create a token in Settings → Agents, read context/statuses, create a project and issue, read the full delivery plan with `detail:true`, save using its version, and verify a stale save conflicts. Repeat with read-only and revoked tokens, then remove only the smoke resources. Confirm remote MCP uses each caller's token rather than a server-wide token.
+
+[AGENTS_API.md](AGENTS_API.md) defines commands and bounds; [docs/AGENT_CLIENTS.md](docs/AGENT_CLIENTS.md) records official client formats. Test discovery, one read and one authorized write in each actual client account before reporting that client as verified. Grok requires an externally reachable HTTPS endpoint; localhost protocol tests do not establish cloud connectivity.
+
+The backend image packages the CLI. CI is configured to compile Linux/macOS/Windows clients and retain the binaries as artifacts; current run outcomes and published releases must be checked separately.
+
 ## Browser checks
 
 ```sh

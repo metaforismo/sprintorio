@@ -184,3 +184,25 @@ test('manual test templates stay unrun and saved test lists can be searched and 
 	await expect(page.locator('summary').filter({ hasText: 'Acceptance check' })).toHaveCount(2);
 	await expect(page.locator('summary').filter({ hasText: 'Regression check' })).toHaveCount(1);
 });
+
+test('copied agent context contains only the saved version and stays unavailable while editing', async ({ page }) => {
+	await page.addInitScript(() => {
+		let attempts = 0;
+		Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (text: string) => { if (++attempts === 1) throw new Error('Clipboard unavailable'); (window as any).__deliveryClipboard = text; } } });
+	});
+	const state = await setup(page);
+	state.latest({ ...emptyPlan(), product_name: 'Saved brief', test_cases: Array.from({ length: 12 }, (_, i) => ({ id: `t${i}`, title: `Check ${i}`, steps: 'Perform check', expected_result: 'Correct result', status: 'not_run', evidence: '' })) });
+	await page.reload();
+	await page.getByRole('button', { name: 'Delivery', exact: true }).click();
+	await page.getByRole('button', { name: 'Copy context', exact: true }).click();
+	await expect(page.getByRole('alert').filter({ hasText: 'Could not copy. Try again.' })).toBeVisible();
+	await page.getByRole('button', { name: 'Copy context', exact: true }).click();
+	await expect(page.getByRole('alert').filter({ hasText: 'Could not copy. Try again.' })).toHaveCount(0);
+	await expect(page.getByRole('status').filter({ hasText: 'Saved context copied.' })).toBeVisible();
+	const context = JSON.parse(await page.evaluate(() => (window as any).__deliveryClipboard));
+	expect(context).toMatchObject({ workspace: 'test', project_id: 'p1', version: 1, basis: 'saved_manual_verification', brief: { product: 'Saved brief' }, tests: { total: 12, not_run: 12, attention_omitted: 2 } });
+	await page.getByLabel('Product name', { exact: true }).fill('Unsaved brief');
+	await expect(page.getByRole('button', { name: 'Copy context', exact: true })).toBeDisabled();
+	await page.getByRole('button', { name: 'Cancel changes', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Copy context', exact: true })).toBeEnabled();
+});
