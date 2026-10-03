@@ -123,8 +123,9 @@
 			if (generation === request) generation++;
 		};
 	});
-	beforeNavigate(({ cancel }) => {
-		if (dirty && !window.confirm(t('Leave this project and discard unsaved delivery changes?'))) cancel();
+	beforeNavigate(({ cancel, to, willUnload }) => {
+		if (!dirty || (!willUnload && to?.url.pathname === page.url.pathname)) return;
+		if (!window.confirm(t('Leave this project and discard unsaved delivery changes?'))) cancel();
 	});
 	function preventUnload(event: BeforeUnloadEvent) {
 		if (dirty) {

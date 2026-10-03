@@ -80,11 +80,13 @@ or hosted deployment is established by these local checks.
 | Agent catalogue and transports | PASS | Actual local API smoke through the official MCP SDK over stdio and Streamable HTTP, plus the CLI: 147 operations and three initial tool schemas measuring 879 JSON bytes |
 | Compact delivery operations | PASS | `delivery.summary` and `delivery.items.update` passed the actual local API smoke |
 | Application checks and build | PASS | Svelte/TypeScript reported zero errors and warnings; sequential production rebuild produced matching fallback HTML/client bootstrap identifiers |
-| Focused delivery browser suite | PASS | Seven delivery scenarios passed; fixtures exercise persistence, test rows/dialogs, conflict recovery, readiness, mobile layout and stable copy feedback |
-| Full application browser suite | PASS | All 46 scenarios passed on the final build under Node 22 and Chrome with one worker; runner exited 0 |
+| Focused delivery browser suite | PASS | Eight delivery scenarios passed after the navigation guard fix; persistence, dialogs, conflict recovery, readiness, mobile, stable clipboard feedback and dirty view/history navigation |
+| Full application browser suite | PASS | All 46 scenarios passed before the final navigation guard fix under Node 22 and Chrome with one worker; runner exited 0 |
 
 The interface revision replaces native disclosures with contextual help
 popovers, explicit history rows, setup/delivery tabs and editing dialogs. Copy
 feedback reserves space or uses a toast. Project view selection follows the URL
 and retains delivery drafts across view switches. These implementation changes
 are covered by the completed browser suite. The initial two-worker local run required teardown interruption; the final one-worker run completed normally.
+
+Same-project view/query navigation preserves delivery drafts without asking to discard them. Leaving the project still requires confirmation. The added eighth delivery scenario verifies view history, Testing navigation, cancelled departure and accepted departure. Svelte check and production build passed again after this fix. The PR workflow covers the resulting 47-scenario suite.

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type Dialog } from '@playwright/test';
 
 const emptyPlan = () => ({
 	product_name: '',
@@ -8,7 +8,7 @@ const emptyPlan = () => ({
 	milestones: [],
 	test_cases: []
 });
-async function setup(page: Page, role = 'member') {
+async function setup(page: Page, role = 'member', includeSecondProject = false) {
 	let plan: any = emptyPlan();
 	let version = 0;
 	let conflict = false;
@@ -37,8 +37,17 @@ async function setup(page: Page, role = 'member') {
 		if (path === '/api/notifications') return route.fulfill({ json: { notifications: [], unread_count: 0 } });
 		if (path === '/api/workspaces/test/projects/p1')
 			return route.fulfill({ json: { id: 'p1', name: 'Launch project', status: 'planned', team_id: null } });
+		if (path.endsWith('/teams') && includeSecondProject)
+			return route.fulfill({ json: [{ id: 't1', name: 'Product', key: 'PRD' }] });
+		if (path === '/api/workspaces/test/projects/p2')
+			return route.fulfill({ json: { id: 'p2', name: 'Another project', status: 'planned', team_id: null } });
 		if (path === '/api/workspaces/test/projects')
-			return route.fulfill({ json: [{ id: 'p1', name: 'Launch project', status: 'planned' }] });
+			return route.fulfill({
+				json: [
+					{ id: 'p1', name: 'Launch project', status: 'planned' },
+					...(includeSecondProject ? [{ id: 'p2', name: 'Another project', status: 'planned', team_id: 't1' }] : [])
+				]
+			});
 		if (path.endsWith('/issues'))
 			return route.fulfill({ json: { data: [], total_count: 0, has_more: false, page: 1 } });
 		if (path.endsWith('/github/status')) return route.fulfill({ json: { configured: false, repos: [] } });
@@ -107,10 +116,17 @@ test('member persists product, milestones and manual test evidence; readiness st
 	await apply(page);
 	await expect(page.getByTestId('delivery-readiness')).toContainText('Ready for review');
 	// Same-project tab changes preserve the local plan.
-	page.on('dialog', (prompt) => prompt.accept());
+	const unexpectedPrompts: string[] = [];
+	const rejectUnexpectedPrompt = async (prompt: Dialog) => {
+		unexpectedPrompts.push(prompt.message());
+		await prompt.dismiss();
+	};
+	page.on('dialog', rejectUnexpectedPrompt);
 	await page.getByRole('button', { name: 'Issue list' }).click();
 	await page.getByRole('button', { name: 'Delivery', exact: true }).click();
 	await expect(page.getByLabel('Product name', { exact: true })).toHaveValue('Customer portal');
+	expect(unexpectedPrompts).toEqual([]);
+	page.off('dialog', rejectUnexpectedPrompt);
 	await page.getByRole('button', { name: 'Save plan' }).click();
 	await expect(page.locator('.app-toast').filter({ hasText: 'Delivery plan saved.' })).toBeVisible();
 	expect(state.writes[0]).toMatchObject({
@@ -283,4 +299,38 @@ test('copied agent context stays saved and repeated toast feedback preserves pop
 	await expect(copy).toBeDisabled();
 	await page.getByRole('button', { name: 'Cancel changes', exact: true }).click();
 	await expect(copy).toBeEnabled();
+});
+
+test('dirty delivery view history stays in the project while leaving requires confirmation', async ({ page }) => {
+	await setup(page, 'member', true);
+	await page.getByLabel('Product name', { exact: true }).fill('Keep this local draft');
+	const prompts: string[] = [];
+	let allowLeaving = false;
+	page.on('dialog', async (prompt) => {
+		prompts.push(prompt.message());
+		if (allowLeaving) await prompt.accept();
+		else await prompt.dismiss();
+	});
+	await page.getByRole('button', { name: 'Issue list' }).click();
+	await expect(page).toHaveURL(/projects\/p1$/);
+	await page.goBack();
+	await expect(page).toHaveURL(/projects\/p1\?view=delivery$/);
+	await expect(page.getByLabel('Product name', { exact: true })).toHaveValue('Keep this local draft');
+	await page.goForward();
+	await expect(page).toHaveURL(/projects\/p1$/);
+	await page.getByRole('button', { name: 'Project actions' }).click();
+	await page.getByRole('menuitem', { name: 'Testing', exact: true }).click();
+	await expect(page).toHaveURL(/projects\/p1\?view=delivery&section=testing$/);
+	expect(prompts).toEqual([]);
+	const sidebar = page.getByRole('complementary');
+	const anotherProject = sidebar.getByRole('link', { name: 'Another project', exact: true });
+	await anotherProject.click();
+	await expect.poll(() => prompts.length).toBe(1);
+	expect(prompts[0]).toBe('Leave this project and discard unsaved delivery changes?');
+	await expect(page).toHaveURL(/projects\/p1\?view=delivery&section=testing$/);
+	await expect(page.getByLabel('Product name', { exact: true })).toHaveValue('Keep this local draft');
+	allowLeaving = true;
+	await anotherProject.click();
+	await expect(page).toHaveURL(/projects\/p2$/);
+	expect(prompts).toHaveLength(2);
 });
