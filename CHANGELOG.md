@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Build optional runtime images on native amd64/arm64 runners with architecture-specific caches.
+- Saved delivery context, accessible command search with stale-result protection, and collapsed inactive-token history.
 - Accept valid UTF-8 text, Markdown and log attachments with detected charset parameters; retain MIME and extension checks.
 
 - Workspace agent tokens with read/write/full scopes, expiry, revocation and current-role enforcement; Settings → Agents provides setup examples.

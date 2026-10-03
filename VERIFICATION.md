@@ -55,13 +55,15 @@ as separate gates.
 | Independent MCP SDK smoke | PASS | Official Node MCP SDK 1.32.0 initialized and called tools over stdio and stateless Streamable HTTP against the actual local API |
 | Real API agent workflow | PASS | Synthetic PostgreSQL-backed workspace: MCP project/view creation, CLI issue creation, saved manual evidence, stale-version 409, read-write denial 403, immediate revocation 401, JWT-only token issuance, upload and private ZIP export with overwrite prevention |
 | Backend agent revision | PASS | Full Go race suite: 642 passed test executions, six infrastructure/fixture-dependent skips; token and resource isolation, membership changes, migrations and uploads exercised with PostgreSQL 17 |
-| UI agent revision | PASS | Production build, 20 unit tests and zero Svelte errors/warnings; 41 browser scenarios passed before the final collapsed-history refinement, which receives its own final CI check |
+| UI agent revision | PASS | Final UI production build, 20 unit tests and zero Svelte errors/warnings; all 42 scenarios passed in [CI run 37080585087](https://github.com/metaforismo/sprintorio/actions/runs/37080585087), including collapsed token history, keyboard/IME, retry and mobile flows |
 | Manual Browser agent revision | PASS | Real API: saved-context copy feedback, dirty draft protection, project search by team key, client configuration selector, 390px form validation and no horizontal overflow |
 | External harness accounts/public HTTP endpoint | NOT RUN | No Claude/Cursor/Codex/Grok/Muse account connection or public deployment is claimed by local fixtures |
-| Agent packaging | NOT RUN in this record | Backend Dockerfile includes the client; workflow configuration compiles five OS/architecture targets and uploads artifacts; current CI success and release publication are not established here |
+| Agent packaging | PASS for CLI compilation | [CI run 37080585087](https://github.com/metaforismo/sprintorio/actions/runs/37080585087) compiled Linux/macOS amd64+arm64 and Windows amd64 clients and uploaded the artifact; release publication remains separate |
 
 Reproduce the client checks using `go test ./internal/agentclient ./cmd/sprintorio`
 from `BE`. [AGENTS_API.md](AGENTS_API.md) documents supported operations and limits;
 [docs/AGENT_CLIENTS.md](docs/AGENT_CLIENTS.md) separates integration configuration
 from tested client-account state. Required redistribution notices remain in
 [NOTICE](NOTICE).
+
+The same Tests run passed the Docker lifecycle integration. Local Chrome ran all 42 assertions successfully but its worker teardown did not finish; Linux CI completed normally. This is kept separate from a completed local runner result. Native amd64/arm64 image builds replace QEMU after provider installers failed under emulation; their final CI outcome is checked before merge.
