@@ -102,7 +102,15 @@ test('first issue continues after team creation and preserves both failed drafts
 	const workspaceSlug = page.getByRole('dialog').getByLabel('Workspace URL', { exact: true });
 	await workspaceSlug.pressSequentially('my-team-');
 	await expect(workspaceSlug).toHaveValue('my-team-');
+	await expect(workspaceSlug).toBeFocused();
+	await expect(page.getByRole('dialog').getByLabel('Workspace name', { exact: true })).toHaveValue('');
 	await workspaceSlug.press('Tab');
+	await expect(workspaceSlug).toHaveValue('my-team');
+	await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Workspaces', exact: true })).toBeFocused();
+	await page.getByRole('button', { name: 'Workspaces', exact: true }).click();
+	await page.getByRole('button', { name: 'Create workspace', exact: true }).click();
+	await expect(page.getByRole('dialog').getByLabel('Workspace name', { exact: true })).toBeFocused();
 	await expect(workspaceSlug).toHaveValue('my-team');
 });
 
