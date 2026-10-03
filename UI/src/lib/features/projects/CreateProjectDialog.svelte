@@ -61,20 +61,24 @@
 <Dialog.Root bind:open>
 	<Dialog.Content
 		showCloseButton={!submitting}
-		onEscapeKeydown={(event) => { if (submitting) event.preventDefault(); }}
-		onInteractOutside={(event) => { if (submitting) event.preventDefault(); }}
+		onEscapeKeydown={(event) => {
+			if (submitting) event.preventDefault();
+		}}
+		onInteractOutside={(event) => {
+			if (submitting) event.preventDefault();
+		}}
 		class="sm:max-w-[420px] border-[var(--app-border)] bg-[var(--color-bg-secondary)] p-0 overflow-hidden rounded-xl"
 	>
-		<form onsubmit={handleSubmit}>
-			<fieldset disabled={submitting}>
+		<form onsubmit={handleSubmit} aria-busy={submitting}>
+			<fieldset disabled={submitting} class="min-w-0">
 				<div class="px-5 pt-5 pb-4 space-y-4">
 					<div>
 						<Dialog.Title class="text-base font-semibold text-[var(--color-text-primary)]">
 							{m['projects.create.title']()}
 						</Dialog.Title>
-						<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
+						<Dialog.Description class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
 							{m['projects.create.description']()}
-						</p>
+						</Dialog.Description>
 					</div>
 
 					<div class="space-y-1.5">
@@ -83,6 +87,7 @@
 						>
 						<Input
 							id="project-name"
+							maxlength={200}
 							bind:value={name}
 							placeholder={m['projects.create.name_placeholder']()}
 							required

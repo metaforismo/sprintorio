@@ -87,14 +87,16 @@
 </script>
 
 <div class="h-full">
-	<div class="flex h-[49px] items-center justify-between border-b border-[var(--app-border)] px-6">
-		<div class="flex items-center gap-3">
+	<div
+		class="flex min-h-[49px] items-center justify-between gap-2 border-b border-[var(--app-border)] px-4 py-2 sm:px-6"
+	>
+		<div class="flex min-w-0 items-center gap-3">
 			<SidebarToggle />
-			<nav class="flex items-center gap-1.5 text-sm">
+			<nav aria-label="Breadcrumb" class="flex min-w-0 flex-wrap items-center gap-1.5 text-sm">
 				{#if sidebarState.getTeam(teamId)}
 					<a
 						href="/{slug}/teams/{teamId}"
-						class="flex items-center gap-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
+						class="flex min-w-0 items-center gap-1.5 break-words [overflow-wrap:anywhere] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
 					>
 						<SquareUser size={14} class="shrink-0" style="color: {sidebarState.getTeamColor(teamId)}" />
 						{sidebarState.getTeam(teamId)?.name}
@@ -137,37 +139,47 @@
 	{:else}
 		<div class="divide-y divide-[var(--app-border)]">
 			{#each projects as project}
-				<a
-					href="/{slug}/projects/{project.id}"
-					class="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6 hover:bg-[var(--color-bg-hover)]"
-				>
-					<div class="flex-1 min-w-0">
-						<div class="flex flex-wrap items-center gap-2">
-							<span class="text-sm font-medium text-[var(--color-text-primary)] break-words">{project.name}</span>
-							<Badge variant={statusVariant(project.status)} class="text-[10px]">
-								{statusLabel(project.status)}
-							</Badge>
-						</div>
-						{#if project.description}
-							<p class="mt-0.5 truncate text-xs text-[var(--color-text-tertiary)]">{project.description}</p>
-						{/if}
-					</div>
-					{#if project.progress && project.progress.total > 0}
-						<div class="flex items-center gap-2 shrink-0">
-							<div class="relative h-1.5 w-24 overflow-hidden rounded-full bg-[var(--color-bg-tertiary)]">
-								<div
-									class="absolute left-0 top-0 h-full rounded-full bg-[var(--color-success)]"
-									style="width: {project.progress.total > 0
-										? (project.progress.completed / project.progress.total) * 100
-										: 0}%"
-								></div>
+				<div class="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6 hover:bg-[var(--color-bg-hover)]">
+					<a
+						href="/{slug}/projects/{project.id}"
+						class="flex min-w-0 flex-1 flex-wrap items-center gap-3 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--app-accent)]"
+					>
+						<div class="flex-1 min-w-0">
+							<div class="flex flex-wrap items-center gap-2">
+								<span class="text-sm font-medium text-[var(--color-text-primary)] break-words [overflow-wrap:anywhere]"
+									>{project.name}</span
+								>
+								<Badge variant={statusVariant(project.status)} class="text-[10px]">
+									{statusLabel(project.status)}
+								</Badge>
 							</div>
-							<span class="text-xs tabular-nums text-[var(--color-text-tertiary)]">
-								{progressPercentage(project)}%
-							</span>
+							{#if project.description}
+								<p class="mt-0.5 truncate text-xs text-[var(--color-text-tertiary)]">{project.description}</p>
+							{/if}
 						</div>
-					{/if}
-				</a>
+						{#if project.progress && project.progress.total > 0}
+							<div class="flex items-center gap-2 shrink-0">
+								<div class="relative h-1.5 w-24 overflow-hidden rounded-full bg-[var(--color-bg-tertiary)]">
+									<div
+										class="absolute left-0 top-0 h-full rounded-full bg-[var(--color-success)]"
+										style="width: {project.progress.total > 0
+											? (project.progress.completed / project.progress.total) * 100
+											: 0}%"
+									></div>
+								</div>
+								<span class="text-xs tabular-nums text-[var(--color-text-tertiary)]">
+									{progressPercentage(project)}%
+								</span>
+							</div>
+						{/if}
+					</a>
+					<a
+						href="/{slug}/projects/{project.id}?view=delivery"
+						aria-label={getLocale() === 'it' ? `Delivery di ${project.name}` : `Delivery for ${project.name}`}
+						class="shrink-0 rounded-md border border-[var(--app-border)] px-3 py-2 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--app-accent)]"
+						>Delivery</a
+					>
+				</div>
 			{/each}
 		</div>
 	{/if}

@@ -25,7 +25,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Select from '$lib/components/ui/select';
-	import * as Popover from '$lib/components/ui/popover';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { getGitHubStatus } from '$lib/api/github';
 	import {
 		deleteDevMachineScopeSetting,
@@ -66,6 +66,7 @@
 	let cycles = $state<Cycle[]>([]);
 	let loading = $state(true);
 	let statusOpen = $state(false);
+	let updatingStatus = $state(false);
 	let actionsOpen = $state(false);
 	let deleteOpen = $state(false);
 	let deleting = $state(false);
@@ -74,7 +75,22 @@
 	let cyclesLoading = $state(false);
 	let cyclesError = $state(false);
 	let cyclesVersion = 0;
-	let viewMode = $state<'list' | 'gantt' | 'delivery'>('list');
+	const viewMode = $derived(
+		page.url.searchParams.get('view') === 'gantt'
+			? 'gantt'
+			: page.url.searchParams.get('view') === 'delivery'
+				? 'delivery'
+				: 'list'
+	);
+
+	function switchView(view: 'list' | 'gantt' | 'delivery', section?: string) {
+		const url = new URL(page.url);
+		if (view === 'list') url.searchParams.delete('view');
+		else url.searchParams.set('view', view);
+		if (section) url.searchParams.set('section', section);
+		else url.searchParams.delete('section');
+		void goto(url, { noScroll: true, keepFocus: true });
+	}
 	let projectRequestVersion = 0;
 	let lastSelectedId = $state<string | null>(null);
 	let developmentOpen = $state(false);
@@ -216,7 +232,8 @@
 	});
 
 	async function handleStatusChange(status: ProjectStatus) {
-		if (!project || !canManageProject) return;
+		if (!project || !canManageProject || updatingStatus) return;
+		updatingStatus = true;
 		const s = slug,
 			pid = project.id,
 			request = projectRequestVersion;
@@ -229,6 +246,8 @@
 		} catch (err: any) {
 			if (s === slug && pid === projectId && request === projectRequestVersion)
 				appToast.apiError(err, m['projects.toast.failed_update_status']());
+		} finally {
+			updatingStatus = false;
 		}
 	}
 
@@ -348,30 +367,32 @@
 						</a>
 						<ChevronRight size={12} class="shrink-0 text-[var(--color-text-tertiary)]" />
 					{/if}
-					<span class="font-medium break-words text-[var(--color-text-primary)]">{project.name}</span>
+					<span class="font-medium break-words [overflow-wrap:anywhere] text-[var(--color-text-primary)]"
+						>{project.name}</span
+					>
 				</nav>
-				<Popover.Root bind:open={statusOpen}>
-					<Popover.Trigger disabled={!canManageProject}>
-						<Badge variant={statusVariant(project.status)} class="cursor-pointer text-[10px]">
-							{m[`projects.status.${project.status}`]()}
+				<DropdownMenu.Root bind:open={statusOpen}>
+					<DropdownMenu.Trigger
+						disabled={!canManageProject || updatingStatus}
+						aria-label={getLocale() === 'it' ? 'Stato progetto' : 'Project status'}
+					>
+						<Badge variant={statusVariant(project.status)} class="text-[10px]">
+							{updatingStatus ? m['common.saving']() : m[`projects.status.${project.status}`]()}
 						</Badge>
-					</Popover.Trigger>
-					<Popover.Content class="w-40 p-1" align="start">
-						{#each STATUS_OPTIONS as option}
-							{@const StatusIcon = option.icon}
-							<button
-								onclick={() => handleStatusChange(option.value)}
-								class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] {project.status ===
-								option.value
-									? 'bg-[var(--color-bg-hover)]'
-									: ''}"
-							>
-								<StatusIcon size={14} />
-								{option.label}
-							</button>
-						{/each}
-					</Popover.Content>
-				</Popover.Root>
+					</DropdownMenu.Trigger>
+					<DropdownMenu.Content class="w-44" align="start">
+						<DropdownMenu.RadioGroup
+							value={project.status}
+							onValueChange={(value) => handleStatusChange(value as ProjectStatus)}
+						>
+							{#each STATUS_OPTIONS as option}
+								<DropdownMenu.RadioItem value={option.value} disabled={updatingStatus}
+									>{option.label}</DropdownMenu.RadioItem
+								>
+							{/each}
+						</DropdownMenu.RadioGroup>
+					</DropdownMenu.Content>
+				</DropdownMenu.Root>
 			</div>
 			<div class="flex max-w-full flex-wrap items-center gap-2">
 				{#if developmentEnabled}
@@ -393,7 +414,7 @@
 				<!-- View switcher -->
 				<div class="flex rounded-md border border-[var(--app-border)]">
 					<button
-						onclick={() => (viewMode = 'list')}
+						onclick={() => switchView('list')}
 						aria-label="Issue list"
 						aria-pressed={viewMode === 'list'}
 						class="flex items-center rounded-l-md px-2 py-2 {viewMode === 'list'
@@ -404,7 +425,7 @@
 						<List size={14} /><span class="ml-1.5 text-xs">{getLocale() === 'it' ? 'Attività' : 'Issues'}</span>
 					</button>
 					<button
-						onclick={() => (viewMode = 'gantt')}
+						onclick={() => switchView('gantt')}
 						aria-label="Gantt chart"
 						aria-pressed={viewMode === 'gantt'}
 						class="flex items-center px-2 py-2 {viewMode === 'gantt'
@@ -415,7 +436,7 @@
 						<BarChart3 size={14} /><span class="ml-1.5 text-xs">Timeline</span>
 					</button>
 					<button
-						onclick={() => (viewMode = 'delivery')}
+						onclick={() => switchView('delivery')}
 						aria-pressed={viewMode === 'delivery'}
 						class="rounded-r-md px-3 py-2 text-xs {viewMode === 'delivery'
 							? 'bg-[var(--color-bg-hover)] text-[var(--color-text-primary)]'
@@ -423,12 +444,11 @@
 					>
 				</div>
 
-				<Popover.Root bind:open={actionsOpen}>
-					<Popover.Trigger>
+				<DropdownMenu.Root bind:open={actionsOpen}>
+					<DropdownMenu.Trigger>
 						{#snippet child({ props })}
 							<Button
 								{...props}
-								disabled={!canManageProject}
 								variant="ghost"
 								size="icon-sm"
 								aria-label={getLocale() === 'it' ? 'Azioni progetto' : 'Project actions'}
@@ -436,20 +456,25 @@
 								<MoreHorizontal size={14} />
 							</Button>
 						{/snippet}
-					</Popover.Trigger>
-					<Popover.Content class="w-40 p-1" align="end">
-						<button
-							onclick={() => {
-								actionsOpen = false;
-								deleteOpen = true;
-							}}
-							class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-[var(--color-error)] hover:bg-[var(--color-bg-hover)]"
-						>
-							<Trash2 size={14} />
-							{m['projects.delete']()}
-						</button>
-					</Popover.Content>
-				</Popover.Root>
+					</DropdownMenu.Trigger>
+					<DropdownMenu.Content class="w-52" align="end">
+						<DropdownMenu.Item onclick={() => switchView('delivery')}>Delivery</DropdownMenu.Item>
+						<DropdownMenu.Item onclick={() => switchView('delivery', 'testing')}>
+							{getLocale() === 'it' ? 'Test e collaudo' : 'Testing'}
+						</DropdownMenu.Item>
+						{#if developmentEnabled}
+							<DropdownMenu.Item onclick={() => (developmentOpen = true)}>
+								<Settings2 size={14} />{m['projects.development.settings']()}
+							</DropdownMenu.Item>
+						{/if}
+						{#if canManageProject}
+							<DropdownMenu.Separator />
+							<DropdownMenu.Item variant="destructive" onclick={() => (deleteOpen = true)}>
+								<Trash2 size={14} />{m['projects.delete']()}
+							</DropdownMenu.Item>
+						{/if}
+					</DropdownMenu.Content>
+				</DropdownMenu.Root>
 			</div>
 		</div>
 
@@ -482,7 +507,7 @@
 				<p class="mt-2 text-sm text-[var(--color-text-secondary)]">{project.description}</p>
 			{/if}
 			{#if project.progress && project.progress.total > 0}
-				<div class="mt-3 w-64">
+				<div class="mt-3 w-64 max-w-full">
 					<CycleProgress progress={project.progress} />
 				</div>
 			{/if}

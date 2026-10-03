@@ -74,20 +74,43 @@ test('retry, safe defaults, failed draft, one-time secret and placeholder config
 	).toBe(false);
 	await dialog.getByRole('button', { name: 'Done', exact: true }).click();
 	await expect(page.getByText(secret, { exact: true })).toHaveCount(0);
+	const configPanel = page.getByRole('tabpanel');
+	await page.getByRole('button', { name: 'Copy configuration' }).scrollIntoViewIfNeeded();
+	// Compare layout coordinates: focusing the copy button can scroll its container.
+	const panelGeometry = () =>
+		configPanel.evaluate((element) => {
+			const rect = element.getBoundingClientRect();
+			let x = rect.x + window.scrollX,
+				y = rect.y + window.scrollY;
+			for (
+				let parent = element.parentElement;
+				parent && parent !== document.documentElement;
+				parent = parent.parentElement
+			) {
+				x += parent.scrollLeft;
+				y += parent.scrollTop;
+			}
+			return { x, y, width: rect.width, height: rect.height };
+		});
+	const beforeCopy = await panelGeometry();
 	await page.getByRole('button', { name: 'Copy configuration' }).click();
+	await expect(page.getByRole('status').filter({ hasText: 'Copied' })).toBeVisible();
+	expect(await panelGeometry()).toEqual(beforeCopy);
 	const config = JSON.parse(await page.evaluate(() => navigator.clipboard.readText()));
 	expect(config.mcpServers.sprintorio.env).toEqual({
 		SPRINTORIO_URL: 'http://localhost:4174',
 		SPRINTORIO_TOKEN: 'YOUR_TOKEN',
 		SPRINTORIO_WORKSPACE: 'test'
 	});
-	await page.getByLabel('Agent client').selectOption('codex');
+	await page.getByRole('button', { name: 'Agent client', exact: true }).click();
+	await page.getByRole('option', { name: 'Codex', exact: true }).click();
 	await page.getByRole('button', { name: 'Copy configuration' }).click();
 	const codexConfig = await page.evaluate(() => navigator.clipboard.readText());
 	expect(codexConfig).toContain('[mcp_servers.sprintorio]');
 	expect(codexConfig).toContain('env_vars = ["SPRINTORIO_TOKEN"]');
 	expect(codexConfig).not.toContain(secret);
-	await page.getByLabel('Agent client').selectOption('muse');
+	await page.getByRole('button', { name: 'Agent client', exact: true }).click();
+	await page.getByRole('option', { name: 'Muse Code', exact: true }).click();
 	await page.getByRole('button', { name: 'Copy configuration' }).click();
 	const museConfig = JSON.parse(await page.evaluate(() => navigator.clipboard.readText()));
 	expect(museConfig.mcp_servers.sprintorio.transport).toBe('stdio');
@@ -143,7 +166,7 @@ test('write opt-in, pending protection, revoke failure and confirmation', async 
 	await dialog.getByRole('button', { name: 'Revoke', exact: true }).click();
 	await expect(dialog).not.toBeVisible();
 	await expect(page.getByText('No active tokens', { exact: true })).toBeVisible();
-	await page.locator('summary').filter({ hasText: 'Expired and revoked (1)' }).click();
+	await page.getByRole('button', { name: 'Expired and revoked (1)', exact: true }).click();
 	await expect(page.getByText('Revoked', { exact: true })).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Revoke Codex' })).toHaveCount(0);
 });
@@ -205,25 +228,58 @@ test('inactive history stays collapsed while active access and connection setup 
 			: route.fulfill({ json: [...history, expired, record] })
 	);
 	await page.goto('/test/settings/agents');
-	const disclosure = page
-		.locator('details')
-		.filter({ has: page.locator('summary').filter({ hasText: 'Expired and revoked' }) });
-	await expect(disclosure.locator('summary')).toHaveText('Expired and revoked (8)');
-	await expect(disclosure).toHaveJSProperty('open', false);
+	const disclosure = page.locator('[data-panel-toggle]');
+	const historyToggle = disclosure.getByRole('button');
+	await expect(historyToggle).toHaveAccessibleName('Expired and revoked (8)');
+	await expect(historyToggle).toHaveAttribute('aria-expanded', 'false');
 	await expect(page.getByRole('heading', { name: 'Previous agent 0', exact: true })).not.toBeVisible();
 	await expect(page.getByRole('button', { name: 'Revoke Codex' })).toBeVisible();
 	await expect(page.getByRole('heading', { name: 'Connect an agent', exact: true })).toBeVisible();
-	await disclosure.locator('summary').click();
+	await historyToggle.focus();
+	await page.keyboard.press('Enter');
+	await expect(historyToggle).toHaveAttribute('aria-expanded', 'true');
 	await expect(page.getByRole('heading', { name: 'Previous agent 0', exact: true })).toBeVisible();
 	await expect(page.getByRole('heading', { name: 'Expired agent', exact: true })).toBeVisible();
 	await expect(page.getByText('Expired', { exact: true })).toBeVisible();
-	await disclosure.locator('summary').click();
+	await historyToggle.click();
 	await page.getByRole('button', { name: 'Revoke Codex' }).click();
 	await page.getByRole('dialog').getByRole('button', { name: 'Revoke', exact: true }).click();
 	await expect(page.getByRole('heading', { name: 'No active tokens', exact: true })).toBeVisible();
-	await expect(disclosure.locator('summary')).toHaveText('Expired and revoked (9)');
+	await expect(historyToggle).toHaveAccessibleName('Expired and revoked (9)');
 	await expect(page.getByRole('heading', { name: 'Codex', exact: true })).not.toBeVisible();
 	await expect(page.getByRole('button', { name: 'Revoke Codex' })).toHaveCount(0);
-	await disclosure.locator('summary').click();
+	await historyToggle.click();
 	await expect(page.getByRole('heading', { name: 'Codex', exact: true })).toBeVisible();
+});
+
+test('connection tabs, endpoint help and installation support keyboard use without native disclosures', async ({
+	page
+}) => {
+	await page.setViewportSize({ width: 390, height: 844 });
+	await setup(page, (route) => route.fulfill({ json: [] }));
+	await page.goto('/test/settings/agents');
+	await expect(page.getByRole('tab', { name: 'MCP', exact: true })).toHaveAttribute('aria-selected', 'true');
+	await expect(page.locator('details, summary')).toHaveCount(0);
+	const help = page.getByRole('button', { name: 'About the server URL', exact: true });
+	const server = page.getByRole('textbox', { name: 'Server URL', exact: true });
+	await help.scrollIntoViewIfNeeded();
+	const beforeHelp = await server.boundingBox();
+	await help.focus();
+	await page.keyboard.press('Enter');
+	await expect(page.getByText('Use the Sprintorio server reachable by your agent.', { exact: false })).toBeVisible();
+	expect(await server.boundingBox()).toEqual(beforeHelp);
+	await page.keyboard.press('Escape');
+	await expect(help).toBeFocused();
+	await page.getByRole('tab', { name: 'MCP', exact: true }).focus();
+	await page.keyboard.press('ArrowRight');
+	await expect(page.getByRole('tab', { name: 'CLI', exact: true })).toHaveAttribute('aria-selected', 'true');
+	await expect(page.getByRole('tabpanel')).toContainText('sprintorio context');
+	await page.keyboard.press('ArrowRight');
+	await expect(page.getByRole('tab', { name: 'Remote', exact: true })).toHaveAttribute('aria-selected', 'true');
+	await expect(page.getByRole('tabpanel')).toContainText('Authorization: Bearer YOUR_TOKEN');
+	await page.getByRole('button', { name: 'Build from a source checkout', exact: true }).click();
+	await expect(page.getByRole('dialog')).toContainText('go build -o sprintorio');
+	await page.keyboard.press('Escape');
+	await expect(page.getByRole('dialog')).not.toBeVisible();
+	await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });

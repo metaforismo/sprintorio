@@ -119,43 +119,53 @@
 	{:else}
 		<div class="divide-y divide-[var(--app-border)]">
 			{#each projects as project}
-				<a
-					href="/{slug}/projects/{project.id}"
-					class="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6 hover:bg-[var(--color-bg-hover)]"
-				>
-					<div class="flex-1 min-w-0">
-						<div class="flex flex-wrap items-center gap-2">
-							<span class="text-sm font-medium text-[var(--color-text-primary)] break-words">{project.name}</span>
-							<Badge variant={statusVariant(project.status)} class="text-[10px]">
-								{statusLabel(project.status)}
-							</Badge>
-							{#if project.team_id}
-								{@const team = teams.find((t) => t.id === project.team_id)}
-								{#if team}
-									<span class="text-[10px] text-[var(--color-text-tertiary)]">{team.name}</span>
+				<div class="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6 hover:bg-[var(--color-bg-hover)]">
+					<a
+						href="/{slug}/projects/{project.id}"
+						class="flex min-w-0 flex-1 flex-wrap items-center gap-3 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--app-accent)]"
+					>
+						<div class="flex-1 min-w-0">
+							<div class="flex flex-wrap items-center gap-2">
+								<span class="text-sm font-medium text-[var(--color-text-primary)] break-words [overflow-wrap:anywhere]"
+									>{project.name}</span
+								>
+								<Badge variant={statusVariant(project.status)} class="text-[10px]">
+									{statusLabel(project.status)}
+								</Badge>
+								{#if project.team_id}
+									{@const team = teams.find((t) => t.id === project.team_id)}
+									{#if team}
+										<span class="text-[10px] text-[var(--color-text-tertiary)]">{team.name}</span>
+									{/if}
 								{/if}
+							</div>
+							{#if project.description}
+								<p class="mt-0.5 truncate text-xs text-[var(--color-text-tertiary)]">{project.description}</p>
 							{/if}
 						</div>
-						{#if project.description}
-							<p class="mt-0.5 truncate text-xs text-[var(--color-text-tertiary)]">{project.description}</p>
-						{/if}
-					</div>
-					{#if project.progress && project.progress.total > 0}
-						<div class="flex items-center gap-2 shrink-0">
-							<div class="relative h-1.5 w-24 overflow-hidden rounded-full bg-[var(--color-bg-tertiary)]">
-								<div
-									class="absolute left-0 top-0 h-full rounded-full bg-[var(--color-success)]"
-									style="width: {project.progress.total > 0
-										? (project.progress.completed / project.progress.total) * 100
-										: 0}%"
-								></div>
+						{#if project.progress && project.progress.total > 0}
+							<div class="flex items-center gap-2 shrink-0">
+								<div class="relative h-1.5 w-24 overflow-hidden rounded-full bg-[var(--color-bg-tertiary)]">
+									<div
+										class="absolute left-0 top-0 h-full rounded-full bg-[var(--color-success)]"
+										style="width: {project.progress.total > 0
+											? (project.progress.completed / project.progress.total) * 100
+											: 0}%"
+									></div>
+								</div>
+								<span class="text-xs tabular-nums text-[var(--color-text-tertiary)]">
+									{progressPercentage(project)}%
+								</span>
 							</div>
-							<span class="text-xs tabular-nums text-[var(--color-text-tertiary)]">
-								{progressPercentage(project)}%
-							</span>
-						</div>
-					{/if}
-				</a>
+						{/if}
+					</a>
+					<a
+						href="/{slug}/projects/{project.id}?view=delivery"
+						aria-label={getLocale() === 'it' ? `Delivery di ${project.name}` : `Delivery for ${project.name}`}
+						class="shrink-0 rounded-md border border-[var(--app-border)] px-3 py-2 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--app-accent)]"
+						>Delivery</a
+					>
+				</div>
 			{/each}
 		</div>
 	{/if}

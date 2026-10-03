@@ -9,6 +9,10 @@
 	import { listAgentTokens, createAgentToken, revokeAgentToken } from '$lib/api/agent-tokens';
 	import type { AgentToken, AgentScope } from '$lib/types/agent-token';
 	import * as Dialog from '$lib/components/ui/dialog';
+	import * as Tabs from '$lib/components/ui/tabs';
+	import * as Select from '$lib/components/ui/select';
+	import InfoPopover from '$lib/components/shared/InfoPopover.svelte';
+	import PanelToggle from '$lib/components/shared/PanelToggle.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
@@ -39,6 +43,8 @@
 	let loadGeneration = 0;
 	let navigationGeneration = 0;
 	let client = $state<AgentClient>('claude');
+	let buildOpen = $state(false);
+	let connectionTab = $state('mcp');
 	const config = $derived(agentConfiguration(client, serverUrl.trim() || page.url.origin, slug));
 	const cliConfig = $derived(
 		`export SPRINTORIO_URL=${shellQuote(serverUrl.trim() || page.url.origin)}\nexport SPRINTORIO_TOKEN='YOUR_TOKEN'\nexport SPRINTORIO_WORKSPACE=${shellQuote(slug)}\nsprintorio context`
@@ -221,81 +227,113 @@
 				</div>
 			{/if}
 			{#if historyTokens.length > 0}
-				<details
-					class="mt-3 overflow-hidden rounded-xl border border-[var(--app-border)] bg-[var(--color-bg-secondary)]"
-				>
-					<summary class="min-h-11 cursor-pointer px-4 py-3 text-sm font-medium"
-						>{copy.history} ({historyTokens.length})</summary
-					>
-					<div class="divide-y divide-[var(--app-border)] border-t border-[var(--app-border)]">
+				<PanelToggle label={copy.history} count={historyTokens.length} class="mt-3">
+					<div class="divide-y divide-[var(--app-border)]">
 						{#each historyTokens as token (token.id)}{@render tokenRow(token)}{/each}
 					</div>
-				</details>
+				</PanelToggle>
 			{/if}
 		{/if}
 		<p class="mt-3 text-xs text-[var(--color-text-tertiary)]">{copy.personal}</p>
 	</section>
 	<section class="space-y-4 border-t border-[var(--app-border)] pt-6" aria-labelledby="connect-title">
-		<div>
+		<div class="flex flex-wrap items-center justify-between gap-2">
 			<h2 id="connect-title" class="flex items-center gap-2 font-medium"><Terminal size={18} />{copy.guide}</h2>
-			<p class="mt-2 text-sm text-[var(--color-text-secondary)]">{copy.guideHint}</p>
+			<Button variant="ghost" class="min-h-11 text-xs" onclick={() => (buildOpen = true)}>{copy.build}</Button>
 		</div>
-		<details class="rounded-lg border border-[var(--app-border)] p-4">
-			<summary class="cursor-pointer text-sm">{copy.build}</summary>
-			<pre class="mt-3 overflow-x-auto rounded-lg bg-[var(--color-bg-secondary)] p-3 text-xs"><code
-					>cd BE
-go build -o sprintorio ./cmd/sprintorio
-mkdir -p "$HOME/.local/bin"
-install -m 755 sprintorio "$HOME/.local/bin/sprintorio"
-export PATH="$HOME/.local/bin:$PATH"</code
-				></pre>
-		</details>
 		<div class="space-y-2">
-			<Label for="agent-server">{copy.endpoint}</Label><Input
+			<div class="flex items-center gap-1">
+				<Label for="agent-server">{copy.endpoint}</Label>
+				<InfoPopover label={copy.endpointHelp} title={copy.endpoint}><p>{copy.endpointHint}</p></InfoPopover>
+			</div>
+			<Input
 				id="agent-server"
 				class="min-h-11"
 				bind:value={serverUrl}
 				type="url"
+				oninput={() => (clipboardStatus = '')}
 			/>
-			<p class="text-xs text-[var(--color-text-tertiary)]">{copy.endpointHint}</p>
 		</div>
-
-		<div class="space-y-2">
-			<Label for="agent-client">{copy.client}</Label><select
-				id="agent-client"
-				bind:value={client}
-				onchange={() => (clipboardStatus = '')}
-				class="min-h-11 w-full rounded-lg border border-[var(--app-border)] bg-[var(--color-bg)] px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]"
-				>{#each agentClients as option}<option value={option.id}>{option.name}</option>{/each}</select
-			>
-		</div>
-		<div class="overflow-hidden rounded-xl border border-[var(--app-border)] bg-[var(--color-bg-secondary)]">
-			<div class="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--app-border)] px-4 py-2">
-				<h3 class="text-sm font-medium">{copy.config}</h3>
-				<Button variant="ghost" class="min-h-11" onclick={() => copyText(config)}
-					><Copy size={14} />{copy.copyConfig}</Button
-				>
-			</div>
-			<pre class="overflow-x-auto p-4 text-xs"><code>{config}</code></pre>
-		</div>
-		<p class="text-xs text-[var(--color-text-secondary)]">{client === 'codex' ? copy.codexToken : copy.tokenHint}</p>
-		<details class="rounded-lg border border-[var(--app-border)] p-4">
-			<summary class="cursor-pointer text-sm">{copy.cli}</summary>
-			<pre class="mt-3 overflow-x-auto text-xs"><code>{cliConfig}</code></pre>
-		</details>
-		<details class="rounded-lg border border-[var(--app-border)] p-4">
-			<summary class="cursor-pointer text-sm">{copy.remote}</summary>
-			<p class="mt-3 text-xs leading-relaxed text-[var(--color-text-secondary)]">{copy.remoteHint}</p>
-			<pre class="mt-3 overflow-x-auto rounded-lg bg-[var(--color-bg-secondary)] p-3 text-xs"><code
-					>sprintorio mcp-http --listen 127.0.0.1:8091 --origins https://client.example
+		<Tabs.Root class="min-w-0" bind:value={connectionTab} onValueChange={() => (clipboardStatus = '')}>
+			<Tabs.List variant="line" class="h-auto max-w-full border-b border-[var(--app-border)]" aria-label={copy.guide}>
+				<Tabs.Trigger value="mcp" class="min-h-11 px-3">MCP</Tabs.Trigger>
+				<Tabs.Trigger value="cli" class="min-h-11 px-3">CLI</Tabs.Trigger>
+				<Tabs.Trigger value="remote" class="min-h-11 px-3">{copy.remoteTab}</Tabs.Trigger>
+			</Tabs.List>
+			<Tabs.Content value="mcp" class="mt-3 min-w-0 space-y-3">
+				<div class="space-y-2">
+					<Label for="agent-client">{copy.client}</Label>
+					<Select.Root type="single" bind:value={client} onValueChange={() => (clipboardStatus = '')}>
+						<Select.Trigger id="agent-client" class="min-h-11 w-full"
+							><span class="truncate">{agentClients.find((option) => option.id === client)?.name}</span></Select.Trigger
+						>
+						<Select.Content
+							>{#each agentClients as option}<Select.Item value={option.id} label={option.name}
+									>{option.name}</Select.Item
+								>{/each}</Select.Content
+						>
+					</Select.Root>
+				</div>
+				<div class="overflow-hidden rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-secondary)]">
+					<div class="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--app-border)] px-4 py-2">
+						<h3 class="text-sm font-medium">{copy.config}</h3>
+						<Button variant="ghost" class="min-h-11" onclick={() => copyText(config)}
+							><Copy size={14} />{copy.copyConfig}</Button
+						>
+					</div>
+					<pre class="overflow-x-auto p-4 text-xs"><code>{config}</code></pre>
+				</div>
+				<p class="text-xs leading-relaxed text-[var(--color-text-secondary)]">
+					{client === 'codex' ? copy.codexToken : copy.tokenHint}
+				</p>
+			</Tabs.Content>
+			<Tabs.Content value="cli" class="mt-3 min-w-0 space-y-3">
+				<div class="overflow-hidden rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-secondary)]">
+					<div class="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--app-border)] px-4 py-2">
+						<h3 class="text-sm font-medium">{copy.cli}</h3>
+						<Button variant="ghost" class="min-h-11" onclick={() => copyText(cliConfig)}
+							><Copy size={14} />{copy.copyConfig}</Button
+						>
+					</div>
+					<pre class="overflow-x-auto p-4 text-xs"><code>{cliConfig}</code></pre>
+				</div>
+			</Tabs.Content>
+			<Tabs.Content value="remote" class="mt-3 min-w-0 space-y-3">
+				<h3 class="text-sm font-medium">{copy.remote}</h3>
+				<p class="text-xs leading-relaxed text-[var(--color-text-secondary)]">{copy.remoteHint}</p>
+				<pre
+					class="overflow-x-auto rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-secondary)] p-4 text-xs"><code
+						>sprintorio mcp-http --listen 127.0.0.1:8091 --origins https://client.example
 
 https://mcp.example.com/mcp
 Authorization: Bearer YOUR_TOKEN</code
-				></pre>
-		</details>
-		{#if clipboardStatus && !secretOpen}<p role="status" class="text-xs">{clipboardStatus}</p>{/if}
+					></pre>
+			</Tabs.Content>
+		</Tabs.Root>
+		<p role="status" aria-live="polite" class="min-h-8 text-xs leading-4 text-[var(--color-text-secondary)]">
+			{!secretOpen ? clipboardStatus : ''}
+		</p>
 	</section>
 </div>
+
+<Dialog.Root bind:open={buildOpen}>
+	<Dialog.Content class="max-h-[80dvh] overflow-y-auto bg-[var(--color-bg-secondary)]">
+		<Dialog.Header
+			><Dialog.Title>{copy.build}</Dialog.Title><Dialog.Description>{copy.guideHint}</Dialog.Description></Dialog.Header
+		>
+		<pre class="overflow-x-auto rounded-lg border border-[var(--app-border)] bg-[var(--color-bg)] p-4 text-xs"><code
+				>cd BE
+go build -o sprintorio ./cmd/sprintorio
+mkdir -p "$HOME/.local/bin"
+install -m 755 sprintorio "$HOME/.local/bin/sprintorio"
+export PATH="$HOME/.local/bin:$PATH"</code
+			></pre>
+		<Dialog.Footer
+			><Button variant="outline" class="min-h-11" onclick={() => (buildOpen = false)}>{copy.close}</Button
+			></Dialog.Footer
+		>
+	</Dialog.Content>
+</Dialog.Root>
 
 <Dialog.Root
 	open={createOpen}
@@ -396,7 +434,7 @@ Authorization: Bearer YOUR_TOKEN</code
 			data-agent-secret>{secret}</code
 		>
 		<Button class="min-h-11" onclick={() => copyText(secret)}><Copy size={16} />{copy.copyToken}</Button>
-		{#if clipboardStatus}<p role="status" class="text-xs">{clipboardStatus}</p>{/if}
+		<p role="status" aria-live="polite" class="min-h-8 text-xs leading-4">{clipboardStatus}</p>
 		<Dialog.Footer><Button variant="outline" class="min-h-11" onclick={clearSecret}>{copy.close}</Button></Dialog.Footer
 		>
 	</Dialog.Content>

@@ -14,10 +14,12 @@ type deliveryPlanFake struct {
 	repository.ProjectRepo
 	project    *domain.Project
 	writeCount int
+	readCount  int
 	loseRace   bool
 }
 
 func (f *deliveryPlanFake) GetByID(context.Context, uuid.UUID) (*domain.Project, error) {
+	f.readCount++
 	return f.project, nil
 }
 func (f *deliveryPlanFake) UpdateDeliveryPlan(_ context.Context, ws, id uuid.UUID, raw json.RawMessage, version int) (bool, error) {
@@ -44,9 +46,11 @@ func TestDeliveryPlanScopesAndOptimisticConcurrency(t *testing.T) {
 	_, err = svc.UpdateDeliveryPlan(ctx, uuid.New(), id, domain.DeliveryPlan{}, 0)
 	require.ErrorIs(t, err, ErrDeliveryPlanNotFound)
 	require.Zero(t, repo.writeCount)
+	readsBeforeSave := repo.readCount
 	saved, err := svc.UpdateDeliveryPlan(ctx, ws, id, domain.DeliveryPlan{Objective: "Release on time"}, 0)
 	require.NoError(t, err)
 	require.Equal(t, 1, saved.Version)
+	require.Equal(t, readsBeforeSave+1, repo.readCount, "full update must use one scoped read")
 	_, err = svc.UpdateDeliveryPlan(ctx, ws, id, domain.DeliveryPlan{Objective: "Stale edit"}, 0)
 	require.ErrorIs(t, err, ErrDeliveryPlanConflict)
 	require.Equal(t, 1, repo.writeCount)

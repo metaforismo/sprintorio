@@ -201,7 +201,7 @@ func (c *Client) Call(ctx context.Context, name string, input map[string]any) (a
 	}
 	detail, _ := input["detail"].(bool)
 
-	if (name == "delivery.get" || name == "delivery.update") && !detail && len(fields) == 0 {
+	if (name == "delivery.get" || name == "delivery.update" || name == "delivery.items.update") && !detail && len(fields) == 0 {
 		if m, ok := result.(map[string]any); ok {
 			return map[string]any{"version": m["version"], "updated_at": m["updated_at"], "plan_summary": project(m["plan"], false, nil, c.token), "hint": "Read delivery.get with detail:true before replacing the full plan"}, nil
 		}

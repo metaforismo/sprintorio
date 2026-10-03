@@ -322,6 +322,8 @@ func main() {
 	ws.POST("/projects", projectH.Create, mw.RequirePermission("project:manage"))
 	ws.GET("/projects/:id", projectH.Get)
 	ws.GET("/projects/:id/delivery-plan", projectH.GetDeliveryPlan)
+	ws.GET("/projects/:id/delivery-plan/summary", projectH.GetDeliveryPlanSummary)
+	ws.PATCH("/projects/:id/delivery-plan/items", projectH.UpdateDeliveryPlanItems, mw.RequirePermission("project:manage"))
 	ws.PATCH("/projects/:id/delivery-plan", projectH.UpdateDeliveryPlan, mw.RequirePermission("project:manage"))
 	ws.PATCH("/projects/:id", projectH.Update, mw.RequirePermission("project:manage"))
 	ws.DELETE("/projects/:id", projectH.Delete, mw.RequirePermission("project:manage"))
