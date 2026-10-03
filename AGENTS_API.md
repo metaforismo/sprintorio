@@ -62,6 +62,23 @@ JSON
 
 The update file must contain `{"id":"PROJECT_UUID","body":{"version":LAST_READ_VERSION,"plan":FULL_PLAN}}`. Read with `detail:true` first and preserve unrelated plan fields. Compact delivery responses label their content `plan_summary` and explicitly direct the agent to read full detail before replacement. A stale version returns conflict/exit 4. Read the current version, reconcile the intended change and submit again; never blindly overwrite or auto-retry. Recording a test result does not itself run a test; evidence must describe actual execution.
 
+Use `delivery.summary` for a bounded readout of saved readiness, status counts and the first 20 attention items with stable IDs; `attention_omitted` reports the remainder. The version accompanies the readout. `readiness.ready` requires a complete product brief, at least one test, all tests passed with title/steps/expected result/evidence, and all milestones done. Its basis is `saved_plan_and_test_evidence`; it is a review signal, not release approval or automated execution. Read `delivery.get` with `detail:true` to inspect all records and evidence.
+
+For one case, milestone or a batch, use `delivery.items.update` instead of replacing the full plan:
+
+```sh
+./sprintorio schema delivery.items.update
+./sprintorio call delivery.summary --input - <<'JSON'
+{"id":"PROJECT_UUID"}
+JSON
+./sprintorio call delivery.items.update --input - <<'JSON'
+{"id":"PROJECT_UUID","body":{"version":7,"test_cases":{"upsert":[{"id":"login-smoke","title":"Login opens dashboard","steps":"Log in using the test account","expected_result":"Dashboard appears","status":"passed","evidence":"Smoke run 2026-10-03: dashboard appeared"}]}}}
+JSON
+```
+
+Each `upsert` replaces the complete item with that ID, or appends a new ID. Omitted collections, unmentioned IDs and product fields are preserved. `remove:["ITEM_ID"]` deletes only known IDs. Each collection permits 200 upserts and 200 removals; the resulting plan remains limited to 200 milestones and 200 tests. Duplicate IDs within a batch, overlapping upsert/remove IDs, unknown removals and empty changes fail without saving. Omitted or null collections do not clear existing records. Batches commit atomically under the same version check and `project:manage` permission as full updates. Edits to a test definition reset an unchanged old outcome/evidence to `not_run`; supply fresh evidence only after an actual new run. Stale versions return 409/exit 4 with no automatic retry.
+
+
 ## Files
 
 ```sh

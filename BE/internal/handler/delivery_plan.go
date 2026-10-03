@@ -57,6 +57,9 @@ func (h *ProjectHandler) UpdateDeliveryPlan(c echo.Context) error {
 	return response.Success(c, http.StatusOK, result)
 }
 func deliveryPlanError(c echo.Context, err error) error {
+	if errors.Is(err, service.ErrDeliveryPlanValidation) {
+		return response.Error(c, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
+	}
 	if errors.Is(err, service.ErrDeliveryPlanNotFound) {
 		return response.NotFound(c, "Project")
 	}
@@ -64,4 +67,45 @@ func deliveryPlanError(c echo.Context, err error) error {
 		return response.Error(c, http.StatusConflict, "DELIVERY_PLAN_CONFLICT", err.Error())
 	}
 	return response.InternalError(c)
+}
+
+func (h *ProjectHandler) UpdateDeliveryPlanItems(c echo.Context) error {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return response.Error(c, http.StatusBadRequest, "BAD_REQUEST", "Invalid project ID")
+	}
+	var req struct {
+		Version    *int                             `json:"version"`
+		Milestones *domain.DeliveryMilestoneChanges `json:"milestones"`
+		TestCases  *domain.DeliveryTestCaseChanges  `json:"test_cases"`
+	}
+	decoder := json.NewDecoder(http.MaxBytesReader(c.Response(), c.Request().Body, 24<<20))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil {
+		return response.Error(c, http.StatusBadRequest, "BAD_REQUEST", "Invalid request body")
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		return response.Error(c, http.StatusBadRequest, "BAD_REQUEST", "Invalid request body")
+	}
+	if req.Version == nil || *req.Version < 0 {
+		return response.Error(c, http.StatusBadRequest, "BAD_REQUEST", "a nonnegative version is required")
+	}
+	ws := c.Get("workspace").(*domain.Workspace)
+	result, err := h.projectSvc.UpdateDeliveryPlanItems(c.Request().Context(), ws.ID, id, domain.DeliveryPlanItems{Milestones: req.Milestones, TestCases: req.TestCases}, *req.Version)
+	if err != nil {
+		return deliveryPlanError(c, err)
+	}
+	return response.Success(c, http.StatusOK, result)
+}
+func (h *ProjectHandler) GetDeliveryPlanSummary(c echo.Context) error {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return response.Error(c, http.StatusBadRequest, "BAD_REQUEST", "Invalid project ID")
+	}
+	ws := c.Get("workspace").(*domain.Workspace)
+	result, err := h.projectSvc.GetDeliveryPlanSummary(c.Request().Context(), ws.ID, id)
+	if err != nil {
+		return deliveryPlanError(c, err)
+	}
+	return response.Success(c, http.StatusOK, result)
 }

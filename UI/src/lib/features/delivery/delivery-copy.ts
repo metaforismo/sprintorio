@@ -1,4 +1,18 @@
 const italian: Record<string, string> = {
+	Copy: 'Copia',
+	'Test templates': 'Modelli test',
+	'Open test': 'Apri test',
+	'Test actions': 'Azioni test',
+	'Edit test': 'Modifica test',
+	'Duplicate test': 'Duplica test',
+	'Remove test': 'Rimuovi test',
+	'Apply changes': 'Applica modifiche',
+	'Test details': 'Dettagli test',
+	Close: 'Chiudi',
+	Cancel: 'Annulla',
+	'Complete the brief and milestones. Every test needs steps, expected results and recorded evidence. Release approval is separate.':
+		'Completa brief e milestone. Ogni test richiede passaggi, risultato atteso e prove. Il rilascio richiede un’approvazione separata.',
+
 	'Copy context': 'Copia contesto',
 	'Saved context copied.': 'Contesto salvato copiato.',
 	'Could not copy. Try again.': 'Impossibile copiare. Riprova.',

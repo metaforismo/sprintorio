@@ -47,6 +47,8 @@ export const agentCopy = {
 		client: 'Agent client',
 		codexToken:
 			'Set SPRINTORIO_TOKEN in your environment before starting Codex. The configuration forwards it without saving the secret.',
+		remoteTab: 'Remote',
+		endpointHelp: 'About the server URL',
 		remote: 'Remote agents · Grok',
 		remoteHint:
 			'Run the MCP server behind HTTPS. In Grok or another remote client, use your public /mcp URL and Authorization: Bearer YOUR_TOKEN. Each caller supplies its own token.',
@@ -106,6 +108,8 @@ export const agentCopy = {
 		client: 'Client agente',
 		codexToken:
 			'Imposta SPRINTORIO_TOKEN nell’ambiente prima di avviare Codex. La configurazione lo inoltra senza salvare il segreto.',
+		remoteTab: 'Remoto',
+		endpointHelp: 'Informazioni sull’URL server',
 		remote: 'Agenti remoti · Grok',
 		remoteHint:
 			'Avvia il server MCP dietro HTTPS. In Grok o un altro client remoto, usa l’URL pubblico /mcp e Authorization: Bearer YOUR_TOKEN. Ogni client invia il proprio token.',

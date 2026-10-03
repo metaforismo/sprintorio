@@ -32,11 +32,11 @@ go test ./internal/agentclient ./cmd/sprintorio -race -count=1
 go test ./internal/middleware ./internal/service ./internal/repository -race -count=1
 ```
 
-The client suite uses local HTTP fixtures and a child process with real stdin/stdout. It checks compact/explicit-field output, pagination, strict operation inputs, validation before writes, delivery conflicts, credential redaction, redirect refusal, message/body limits, file upload/export, JSON-RPC lifecycle, stdio hygiene, remote caller authorization, exact Origin allowlists and formatted HTTP JSON. Its measured three-tool catalogue is 879 JSON bytes; byte size is not a tokenizer-specific token count.
+The client suite uses local HTTP fixtures and a child process with real stdin/stdout. It checks compact/explicit-field output, pagination, strict operation inputs, validation before writes, delivery conflicts, credential redaction, redirect refusal, message/body limits, file upload/export, JSON-RPC lifecycle, stdio hygiene, remote caller authorization, exact Origin allowlists and formatted HTTP JSON. The current catalogue contains 147 operations. Its three initial tool schemas measure 879 JSON bytes; byte size is not a tokenizer-specific token count.
 
 Backend tests separately cover agent-token scope, expiry/revocation, current workspace roles and cross-workspace references. Database-backed tests still require the disposable `DATABASE_URL` above. A fixture result does not establish a real-account connection.
 
-For a real API smoke, use a disposable workspace: create a token in Settings → Agents, read context/statuses, create a project and issue, read the full delivery plan with `detail:true`, save using its version, and verify a stale save conflicts. Repeat with read-only and revoked tokens, then remove only the smoke resources. Confirm remote MCP uses each caller's token rather than a server-wide token.
+For a real API smoke, use a disposable workspace: create a token in Settings → Agents, read context/statuses, create a project and issue, read `delivery.summary`, then use `delivery.items.update` to upsert or remove a milestone or test case using the returned version. Verify unrelated items remain intact and a stale version returns 409. Read `delivery.get` with `detail:true` before replacing a full plan. Repeat with read-only and revoked tokens, then remove only the smoke resources. Confirm remote MCP uses each caller's token rather than a server-wide token.
 
 [AGENTS_API.md](AGENTS_API.md) defines commands and bounds; [docs/AGENT_CLIENTS.md](docs/AGENT_CLIENTS.md) records official client formats. Test discovery, one read and one authorized write in each actual client account before reporting that client as verified. Grok requires an externally reachable HTTPS endpoint; localhost protocol tests do not establish cloud connectivity.
 
@@ -53,13 +53,22 @@ npm run validate
 npm run test:responsive
 ```
 
-The UI browser suite mocks API responses to exercise forms, failed-draft retry, permissions, conflict recovery, selector keyboard/focus behavior, bounded session recovery, project navigation, filtered test deletion, and readiness states. Backend integration tests separately exercise actual PostgreSQL persistence. Mocked browser fixtures and screenshots are examples; they are not live customer data or proof of a full application deployment.
+The UI browser suite mocks API responses to exercise forms, failed-draft retry, permissions, conflict recovery, selector and menu keyboard/focus behavior, help-popover dismissal, connection and delivery tabs, test-editing dialogs, stable copy feedback, bounded session recovery, project URL navigation, draft retention, filtered test deletion, and readiness states. Backend integration tests separately exercise actual PostgreSQL persistence. Mocked browser fixtures and screenshots are examples; they are not live customer data or proof of a full application deployment.
 
 For an already installed Chrome browser, use `PLAYWRIGHT_CHANNEL=chrome` with the browser-test commands.
 
 To run browser checks against Vite development mode instead of a production preview, set `PLAYWRIGHT_DEV_SERVER=1`. Production build validation remains a separate requirement.
 
-After a successful `npm run build` on the same checkout, set `PLAYWRIGHT_PREBUILT=1` to reuse that build for browser checks instead of rebuilding it.
+Run `npm run check` and `npm run build` sequentially. Both write generated SvelteKit files; overlapping them can produce a fallback HTML file and client chunks with different bootstrap identifiers. After a successful build on the same checkout, set `PLAYWRIGHT_PREBUILT=1` to reuse it for browser checks.
+
+For focused delivery and agent-interface regressions:
+
+```sh
+cd UI
+PLAYWRIGHT_PREBUILT=1 npm run test:e2e -- tests/e2e/delivery-plan.test.ts tests/e2e/agent-access.test.ts tests/e2e/projects-experience.test.ts --workers=1
+```
+
+A focused run does not establish that the full browser suite passed.
 
 Documentation screenshots use sample data and are updated only when explicitly requested:
 

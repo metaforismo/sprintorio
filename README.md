@@ -18,10 +18,10 @@ Open a project and select **Delivery** to manage:
 
 - **Product brief:** product name, objective, success metric, and target release date.
 - **Milestones:** dates and planned, in-progress, or done status.
-- **Manual test cases:** acceptance, regression, and accessibility starters; steps, expected results, recorded outcomes, and evidence. Search or filter larger plans. Passed and failed results require evidence.
+- **Manual test cases:** acceptance, regression, and accessibility starters; steps, expected results, recorded outcomes, and evidence. Search or filter compact test rows; open a test to edit its steps and evidence. Passed and failed results require evidence.
 - **Review readiness:** a conservative summary of recorded milestones and tests. An empty test plan is never considered ready. This is a planning aid, not a deployment approval or proof that automated tests passed.
 
-Plans are stored in PostgreSQL, scoped to the workspace, and included in workspace transfers. Owners, admins, and members can edit; guests can read. Versioned saves reject conflicting edits and preserve your draft until you explicitly reload the latest version.
+Plans are stored in PostgreSQL, scoped to the workspace, and included in workspace transfers. Owners, admins, and members can edit; guests can read. Versioned saves reject conflicting edits and preserve your draft until you explicitly reload the latest version. Project views follow the URL, so direct links and browser navigation restore the selected view. Switching views preserves unsaved delivery edits.
 
 ## Start a workspace
 
@@ -29,7 +29,7 @@ Create your workspace, add a team, and write the first issue. The first-use guid
 
 ## Connect an agent
 
-Open **Settings → Agents**, choose a named token with `read`, `write` or `full` scope, and copy its value once. Scopes retain your current workspace role; they do not grant owner access. Revoke tokens from the same page. Agent tools cannot manage tokens or global server settings.
+Open **Settings → Agents**, choose a named token with `read`, `write` or `full` scope, and copy its value once. Scopes retain your current workspace role; they do not grant owner access. Revoke tokens from the same page. Agent tools cannot manage tokens or global server settings. MCP, CLI and remote setup use separate tabs; build instructions open in a dialog.
 
 Build the client from this checkout:
 
@@ -42,7 +42,7 @@ cd ..
 
 Inject `SPRINTORIO_URL`, `SPRINTORIO_WORKSPACE` and `SPRINTORIO_TOKEN` through your environment or secret manager. Then use the CLI or launch `sprintorio mcp` from a local MCP harness. For remote clients, `sprintorio mcp-http` exposes an authenticated `/mcp` endpoint on loopback by default; public access requires your own HTTPS deployment.
 
-The client exposes 145 fixed workspace operations through three MCP tools: discover operations, request one schema, then execute an action. Compact JSON, explicit pagination and versioned delivery updates keep agent workflows reviewable. CLI uploads and ZIP exports are bounded. Optional machine operations remain subject to server capability and policy.
+The client exposes 147 fixed workspace operations through three MCP tools: discover operations, request one schema, then execute an action. `delivery.summary` reads the plan version and recorded readiness without transferring the full plan. `delivery.items.update` upserts or removes specific milestones and test cases with a required version, preserving unrelated work. Compact JSON and explicit pagination keep agent workflows reviewable. CLI uploads and ZIP exports are bounded. Optional machine operations remain subject to server capability and policy.
 
 See [Agent API](AGENTS_API.md) for commands, permissions, limits and delivery-test workflows, and [client configurations](docs/AGENT_CLIENTS.md) for Claude Code, Cursor, Codex, Grok, Muse Code, OpenCode and Gemini CLI. Configuration examples are documented integrations; external account connections are a separate verification step.
 

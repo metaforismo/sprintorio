@@ -71,6 +71,8 @@ var agentTokenRoutes = map[string]bool{
 	"GET /api/workspaces/:slug/projects":                                        true,
 	"POST /api/workspaces/:slug/projects":                                       true,
 	"GET /api/workspaces/:slug/projects/:id":                                    true,
+	"GET /api/workspaces/:slug/projects/:id/delivery-plan/summary":              true,
+	"PATCH /api/workspaces/:slug/projects/:id/delivery-plan/items":              true,
 	"GET /api/workspaces/:slug/projects/:id/delivery-plan":                      true,
 	"PATCH /api/workspaces/:slug/projects/:id/delivery-plan":                    true,
 	"PATCH /api/workspaces/:slug/projects/:id":                                  true,

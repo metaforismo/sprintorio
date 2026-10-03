@@ -1,5 +1,4 @@
 import { expect, test, type Page } from '@playwright/test';
-import { mkdir, copyFile } from 'node:fs/promises';
 
 const emptyPlan = () => ({
 	product_name: '',
@@ -61,6 +60,28 @@ async function setup(page: Page, role = 'member') {
 	};
 }
 
+async function choose(page: Page, label: string, option: string) {
+	await page.getByRole('button', { name: label, exact: true }).click();
+	await page.getByRole('option', { name: option, exact: true }).click();
+}
+async function apply(page: Page) {
+	await page.getByRole('dialog').getByRole('button', { name: 'Apply changes', exact: true }).click();
+	await expect(page.getByRole('dialog')).toHaveCount(0);
+}
+async function template(page: Page, name: string) {
+	await page.getByRole('button', { name: 'Test templates', exact: true }).click();
+	await page.getByRole('menuitem', { name, exact: true }).click();
+	await apply(page);
+}
+const savedTest = (title = 'Order status visible') => ({
+	id: 'test-1',
+	title,
+	steps: 'Sign in and open an order',
+	expected_result: 'Current status appears',
+	status: 'passed',
+	evidence: 'Checked in Firefox; status was Delivered.'
+});
+
 test('member persists product, milestones and manual test evidence; readiness stays conservative', async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 1600 });
 	const state = await setup(page);
@@ -71,32 +92,27 @@ test('member persists product, milestones and manual test evidence; readiness st
 	await page.getByLabel('Target release', { exact: true }).fill('2026-11-01');
 	await page.getByRole('button', { name: 'Add milestone' }).click();
 	await page.getByLabel('Milestone 1', { exact: true }).fill('Portal shipped');
-	await page.getByLabel('Milestone status').selectOption('done');
+	await choose(page, 'Milestone status', 'Done');
 	await page.getByRole('button', { name: 'Add test case' }).click();
-	await page.getByLabel('Test case 1', { exact: true }).fill('Order status visible');
-	await page.getByLabel('Steps', { exact: true }).fill('Sign in and open an order');
-	await page.getByLabel('Expected result', { exact: true }).fill('Current status appears');
-	await expect(page.getByText('Testing pending', { exact: true })).toBeVisible();
-	await page.getByLabel('Test status').selectOption('passed');
-	await page.getByRole('button', { name: 'Save plan' }).click();
-	expect(state.writes).toHaveLength(0); // browser blocks a passed result without evidence
-	await page.getByLabel('Evidence (required)', { exact: true }).fill('Checked in Firefox; status was Delivered.');
-	await expect(page.getByText('Ready for review', { exact: true })).toBeVisible();
+	const dialog = page.getByRole('dialog');
+	await dialog.getByLabel('Test case', { exact: true }).fill('Order status visible');
+	await dialog.getByLabel('Steps', { exact: true }).fill('Sign in and open an order');
+	await dialog.getByLabel('Expected result', { exact: true }).fill('Current status appears');
+	await choose(page, 'Test status', 'Passed');
+	await dialog.getByRole('button', { name: 'Apply changes' }).click();
+	await expect(dialog).toBeVisible();
+	expect(state.writes).toHaveLength(0);
+	await expect(dialog.getByLabel('Evidence *', { exact: true })).toHaveAttribute('required', '');
+	await dialog.getByLabel('Evidence *', { exact: true }).fill('Checked in Firefox; status was Delivered.');
+	await apply(page);
+	await expect(page.getByTestId('delivery-readiness')).toContainText('Ready for review');
+	// Same-project tab changes preserve the local plan.
+	page.on('dialog', (prompt) => prompt.accept());
 	await page.getByRole('button', { name: 'Issue list' }).click();
 	await page.getByRole('button', { name: 'Delivery', exact: true }).click();
 	await expect(page.getByLabel('Product name', { exact: true })).toHaveValue('Customer portal');
 	await page.getByRole('button', { name: 'Save plan' }).click();
-	await expect(page.getByRole('status').filter({ hasText: 'Delivery plan saved.' })).toBeVisible();
-	if (process.env.UPDATE_SCREENSHOTS === '1') {
-		await mkdir('../assets', { recursive: true });
-		await mkdir('../WEB/static', { recursive: true });
-		await page.setViewportSize({ width: 1440, height: 1000 });
-		await page.screenshot({ path: '../assets/product-screenshot.jpg', fullPage: true });
-		await copyFile('../assets/product-screenshot.jpg', '../WEB/static/product-screenshot.jpg');
-		await page.setViewportSize({ width: 390, height: 844 });
-		await page.screenshot({ path: '../WEB/static/product-mobile.jpg', fullPage: true });
-		await page.setViewportSize({ width: 1440, height: 1600 });
-	}
+	await expect(page.locator('.app-toast').filter({ hasText: 'Delivery plan saved.' })).toBeVisible();
 	expect(state.writes[0]).toMatchObject({
 		version: 0,
 		plan: {
@@ -106,17 +122,19 @@ test('member persists product, milestones and manual test evidence; readiness st
 		}
 	});
 	await page.reload();
-	await page.getByRole('button', { name: 'Delivery', exact: true }).click();
-	await expect(page.getByLabel('Product name', { exact: true })).toHaveValue('Customer portal');
-	await page.getByLabel('Expected result', { exact: true }).fill('An updated acceptance criterion');
-	await expect(page.getByLabel('Test status')).toHaveValue('not_run');
-	await expect(page.getByLabel('Evidence', { exact: true })).toHaveValue('');
-	await expect(page.getByText('Testing pending', { exact: true })).toBeVisible();
+	await page.getByRole('button', { name: 'Open test: Order status visible', exact: true }).click();
+	await dialog.getByLabel('Expected result', { exact: true }).fill('An updated acceptance criterion');
+	await expect(dialog.getByRole('button', { name: 'Test status' })).toHaveText('Not run');
+	await expect(dialog.getByLabel('Evidence', { exact: true })).toHaveValue('');
+	await apply(page);
+	await expect(page.getByTestId('delivery-readiness')).toContainText('Testing pending');
 	await page.getByRole('button', { name: 'Cancel changes' }).click();
-	await page.getByLabel('Test status').selectOption('failed');
-	await expect(page.getByText('Changes needed', { exact: true })).toBeVisible();
+	await page.getByRole('button', { name: 'Open test: Order status visible', exact: true }).click();
+	await choose(page, 'Test status', 'Failed');
+	await apply(page);
+	await expect(page.getByTestId('delivery-readiness')).toContainText('Changes needed');
 	await page.getByRole('button', { name: 'Cancel changes' }).click();
-	await expect(page.getByLabel('Test status')).toHaveValue('passed');
+	await expect(page.getByTestId('test-row')).toContainText('Passed');
 });
 
 test('conflict keeps unsaved edits until an explicit reload', async ({ page }) => {
@@ -132,77 +150,137 @@ test('conflict keeps unsaved edits until an explicit reload', async ({ page }) =
 	await expect(page.getByLabel('Product name', { exact: true })).toHaveValue('Newer teammate version');
 });
 
-test('guest can read but cannot edit or save a delivery plan', async ({ page }) => {
+test('guest can read test details but cannot edit or save a delivery plan', async ({ page }) => {
 	const state = await setup(page, 'guest');
+	state.latest({ ...emptyPlan(), test_cases: [savedTest()] });
+	await page.reload();
 	await expect(page.getByText('View only.', { exact: false })).toBeVisible();
 	await expect(page.getByLabel('Product name', { exact: true })).toBeDisabled();
 	await expect(page.getByRole('button', { name: 'Save plan' })).toHaveCount(0);
 	await expect(page.getByRole('button', { name: 'Add milestone' })).toHaveCount(0);
+	await page.getByRole('button', { name: 'Open test: Order status visible' }).click();
+	await expect(page.getByRole('dialog').getByLabel('Test case', { exact: true })).toBeDisabled();
+	await expect(page.getByRole('button', { name: 'Apply changes' })).toHaveCount(0);
+	await page.getByRole('dialog').locator('form').getByRole('button', { name: 'Close', exact: true }).click();
 	expect(state.writes).toHaveLength(0);
 });
 
-test('delivery form works on a narrow mobile viewport without horizontal overflow', async ({ page }) => {
+test('delivery form and test editor fit a narrow mobile viewport', async ({ page }) => {
 	await page.setViewportSize({ width: 390, height: 844 });
 	await setup(page);
 	await page.getByLabel('Product name', { exact: true }).fill('Mobile portal');
 	await page.getByRole('button', { name: 'Add milestone' }).click();
 	await page.getByLabel('Milestone 1', { exact: true }).fill('Customer rollout');
 	await page.getByRole('button', { name: 'Add test case' }).click();
-	await page.getByLabel('Test case 1', { exact: true }).fill('Mobile sign in');
+	await page.getByLabel('Test case', { exact: true }).fill('Mobile sign in');
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-	if (process.env.UPDATE_SCREENSHOTS === '1') {
-		await mkdir('../assets', { recursive: true });
-		await page.screenshot({ path: '../assets/delivery-mobile.jpg', fullPage: true });
-	}
+	const box = await page.getByRole('dialog').boundingBox();
+	expect(box!.x).toBeGreaterThanOrEqual(0);
+	expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+	await page.getByRole('button', { name: 'Cancel', exact: true }).click();
 });
 
 test('manual test templates stay unrun and saved test lists can be searched and filtered', async ({ page }) => {
 	const state = await setup(page);
-	for (const name of ['Acceptance', 'Regression', 'Accessibility', 'Acceptance']) {
-		await page.getByRole('button', { name, exact: true }).click();
-	}
-	await expect(page.getByText('Testing pending', { exact: true })).toBeVisible();
+	for (const name of ['Acceptance', 'Regression', 'Accessibility', 'Acceptance']) await template(page, name);
+	await expect(page.getByTestId('delivery-readiness')).toContainText('Testing pending');
 	await page.getByRole('button', { name: 'Save plan', exact: true }).click();
+	await expect.poll(() => state.writes.length).toBe(1);
 	expect(state.writes[0].plan.test_cases.every((item: any) => item.status === 'not_run' && !item.evidence)).toBe(true);
 	await page.reload();
-	await page.getByRole('button', { name: 'Delivery', exact: true }).click();
-	await expect(page.getByLabel('Steps', { exact: true }).first()).toBeHidden();
+	await expect(page.getByLabel('Steps', { exact: true })).toHaveCount(0);
 	await page.getByLabel('Search tests', { exact: true }).fill('keyboard');
-	await expect(page.locator('summary').filter({ hasText: 'Accessibility check' })).toHaveCount(1);
-	await expect(page.locator('summary').filter({ hasText: 'Acceptance check' })).toHaveCount(0);
-	const accessibilitySummary = page.locator('summary').filter({ hasText: 'Accessibility check' });
-	if ((await accessibilitySummary.locator('..').getAttribute('open')) === null) await accessibilitySummary.click();
-	await expect(page.getByLabel('Test case 3', { exact: true })).toHaveValue('Accessibility check');
-
-	await page.getByRole('combobox', { name: 'Filter by result', exact: true }).selectOption('passed');
+	await expect(page.getByRole('button', { name: 'Open test: Accessibility check', exact: true })).toHaveCount(1);
+	await expect(page.getByRole('button', { name: 'Open test: Acceptance check', exact: true })).toHaveCount(0);
+	await choose(page, 'Filter by result', 'Passed');
 	await expect(page.getByText('No matching tests.', { exact: true })).toBeVisible();
-	await page.getByRole('combobox', { name: 'Filter by result', exact: true }).selectOption('all');
-	if ((await accessibilitySummary.locator('..').getAttribute('open')) === null) await accessibilitySummary.click();
-	await page.getByRole('button', { name: 'Remove test case 3', exact: true }).click();
+	await choose(page, 'Filter by result', 'All results');
+	await page.getByRole('button', { name: 'Test actions: Accessibility check', exact: true }).click();
+	await page.getByRole('menuitem', { name: 'Remove test', exact: true }).click();
 	await expect(page.getByLabel('Search tests', { exact: true })).toHaveValue('keyboard');
 	await page.getByLabel('Search tests', { exact: true }).fill('');
-	await expect(page.locator('summary').filter({ hasText: 'Acceptance check' })).toHaveCount(2);
-	await expect(page.locator('summary').filter({ hasText: 'Regression check' })).toHaveCount(1);
+	await expect(page.getByRole('button', { name: 'Open test: Acceptance check', exact: true })).toHaveCount(2);
+	await expect(page.getByRole('button', { name: 'Open test: Regression check', exact: true })).toHaveCount(1);
 });
 
-test('copied agent context contains only the saved version and stays unavailable while editing', async ({ page }) => {
+test('test dialog cancel preserves the plan and duplication resets recorded outcome', async ({ page }) => {
+	const state = await setup(page);
+	state.latest({ ...emptyPlan(), test_cases: [savedTest()] });
+	await page.reload();
+	await page.getByRole('button', { name: 'Open test: Order status visible', exact: true }).click();
+	await page.getByLabel('Test case', { exact: true }).fill('Discard this edit');
+	await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Save plan' })).toBeDisabled();
+	await expect(page.getByTestId('test-row')).toContainText('Order status visible');
+	await page.getByRole('button', { name: 'Test actions: Order status visible', exact: true }).click();
+	await page.getByRole('menuitem', { name: 'Duplicate test', exact: true }).click();
+	await expect(page.getByLabel('Test case', { exact: true })).toHaveValue('Order status visible (Copy)');
+	await expect(page.getByRole('button', { name: 'Test status' })).toHaveText('Not run');
+	await expect(page.getByLabel('Evidence', { exact: true })).toHaveValue('');
+	await apply(page);
+	await page.getByRole('button', { name: 'Save plan' }).click();
+	await expect.poll(() => state.writes.length).toBe(1);
+	expect(state.writes[0].plan.test_cases).toHaveLength(2);
+	expect(state.writes[0].plan.test_cases[0]).toMatchObject({ status: 'passed', evidence: savedTest().evidence });
+	expect(state.writes[0].plan.test_cases[1]).toMatchObject({ status: 'not_run', evidence: '' });
+});
+
+test('copied agent context stays saved and repeated toast feedback preserves popover geometry', async ({ page }) => {
 	await page.addInitScript(() => {
 		let attempts = 0;
-		Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (text: string) => { if (++attempts === 1) throw new Error('Clipboard unavailable'); (window as any).__deliveryClipboard = text; } } });
+		Object.defineProperty(navigator, 'clipboard', {
+			configurable: true,
+			value: {
+				writeText: async (text: string) => {
+					if (++attempts % 2 === 1) throw new Error('Clipboard unavailable');
+					(window as any).__deliveryClipboard = text;
+				}
+			}
+		});
 	});
 	const state = await setup(page);
-	state.latest({ ...emptyPlan(), product_name: 'Saved brief', test_cases: Array.from({ length: 12 }, (_, i) => ({ id: `t${i}`, title: `Check ${i}`, steps: 'Perform check', expected_result: 'Correct result', status: 'not_run', evidence: '' })) });
+	state.latest({
+		...emptyPlan(),
+		product_name: 'Saved brief',
+		test_cases: Array.from({ length: 12 }, (_, i) => ({
+			id: `t${i}`,
+			title: `Check ${i}`,
+			steps: 'Perform check',
+			expected_result: 'Correct result',
+			status: 'not_run',
+			evidence: ''
+		}))
+	});
 	await page.reload();
-	await page.getByRole('button', { name: 'Delivery', exact: true }).click();
-	await page.getByRole('button', { name: 'Copy context', exact: true }).click();
-	await expect(page.getByRole('alert').filter({ hasText: 'Could not copy. Try again.' })).toBeVisible();
-	await page.getByRole('button', { name: 'Copy context', exact: true }).click();
-	await expect(page.getByRole('alert').filter({ hasText: 'Could not copy. Try again.' })).toHaveCount(0);
-	await expect(page.getByRole('status').filter({ hasText: 'Saved context copied.' })).toBeVisible();
+	const copy = page.getByRole('button', { name: 'Copy context', exact: true });
+	const geometry = await copy.boundingBox();
+	for (let i = 0; i < 20; i++) {
+		await copy.click();
+		const message = i % 2 === 0 ? 'Could not copy. Try again.' : 'Saved context copied.';
+		await expect(page.locator('.app-toast').filter({ hasText: message })).toBeVisible();
+		await expect(page.locator('.app-toast')).toHaveCount(1);
+		expect(await copy.boundingBox()).toEqual(geometry);
+		await page.getByRole('button', { name: 'How readiness works', exact: true }).click();
+		const popover = page.locator('[data-slot="popover-content"]');
+		await expect(popover).toBeVisible();
+		const box = await popover.boundingBox();
+		const viewport = page.viewportSize()!;
+		expect(box!.x).toBeGreaterThanOrEqual(0);
+		expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width);
+		await page.keyboard.press('Escape');
+		await expect(popover).toHaveCount(0);
+	}
 	const context = JSON.parse(await page.evaluate(() => (window as any).__deliveryClipboard));
-	expect(context).toMatchObject({ workspace: 'test', project_id: 'p1', version: 1, basis: 'saved_manual_verification', brief: { product: 'Saved brief' }, tests: { total: 12, not_run: 12, attention_omitted: 2 } });
+	expect(context).toMatchObject({
+		workspace: 'test',
+		project_id: 'p1',
+		version: 1,
+		basis: 'saved_manual_verification',
+		brief: { product: 'Saved brief' },
+		tests: { total: 12, not_run: 12, attention_omitted: 2 }
+	});
 	await page.getByLabel('Product name', { exact: true }).fill('Unsaved brief');
-	await expect(page.getByRole('button', { name: 'Copy context', exact: true })).toBeDisabled();
+	await expect(copy).toBeDisabled();
 	await page.getByRole('button', { name: 'Cancel changes', exact: true }).click();
-	await expect(page.getByRole('button', { name: 'Copy context', exact: true })).toBeEnabled();
+	await expect(copy).toBeEnabled();
 });

@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/metaforismo/sprintorio/BE/internal/domain"
 )
 
 var ErrDeliveryPlanNotFound = errors.New("project not found")
+var ErrDeliveryPlanValidation = errors.New("invalid delivery plan changes")
 var ErrDeliveryPlanConflict = errors.New("delivery plan has changed; reload before saving")
 
 type DeliveryPlanResponse struct {
@@ -51,6 +53,13 @@ func (s *ProjectService) UpdateDeliveryPlan(ctx context.Context, workspaceID, pr
 	if current.Version != version {
 		return nil, ErrDeliveryPlanConflict
 	}
+	return s.persistDeliveryPlan(ctx, workspaceID, projectID, plan, current)
+}
+
+// Both update forms persist from their single scoped read; the database CAS
+// rejects changes committed after that read.
+func (s *ProjectService) persistDeliveryPlan(ctx context.Context, workspaceID, projectID uuid.UUID, plan domain.DeliveryPlan, current *DeliveryPlanResponse) (*DeliveryPlanResponse, error) {
+	version := current.Version
 	plan.Normalize()
 	invalidateChangedTestOutcomes(&plan, current.Plan)
 	raw, err := json.Marshal(plan)
@@ -90,4 +99,35 @@ func invalidateChangedTestOutcomes(plan *domain.DeliveryPlan, previous domain.De
 			test.Evidence = ""
 		}
 	}
+}
+
+// UpdateDeliveryPlanItems keeps the same compare-and-swap boundary as full updates.
+func (s *ProjectService) UpdateDeliveryPlanItems(ctx context.Context, workspaceID, projectID uuid.UUID, changes domain.DeliveryPlanItems, version int) (*DeliveryPlanResponse, error) {
+	current, err := s.GetDeliveryPlan(ctx, workspaceID, projectID)
+	if err != nil {
+		return nil, err
+	}
+	if current.Version != version {
+		return nil, ErrDeliveryPlanConflict
+	}
+	plan, err := changes.Apply(current.Plan)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrDeliveryPlanValidation, err)
+	}
+	return s.persistDeliveryPlan(ctx, workspaceID, projectID, plan, current)
+}
+
+type DeliveryPlanSummary struct {
+	Version       int                      `json:"version"`
+	ProductName   string                   `json:"product_name"`
+	TargetRelease string                   `json:"target_release"`
+	Readiness     domain.DeliveryReadiness `json:"readiness"`
+}
+
+func (s *ProjectService) GetDeliveryPlanSummary(ctx context.Context, workspaceID, projectID uuid.UUID) (*DeliveryPlanSummary, error) {
+	current, err := s.GetDeliveryPlan(ctx, workspaceID, projectID)
+	if err != nil {
+		return nil, err
+	}
+	return &DeliveryPlanSummary{Version: current.Version, ProductName: current.Plan.ProductName, TargetRelease: current.Plan.TargetRelease, Readiness: current.Plan.Readiness()}, nil
 }

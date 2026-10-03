@@ -117,13 +117,13 @@ test('project list error has retry; timeline loads only the project team and del
 		.filter({ hasText: 'Could not load projects' })
 		.getByRole('button', { name: 'Retry', exact: true })
 		.click();
-	await page.getByRole('link', { name: /Portal launch/ }).click();
+	await page.getByRole('link', { name: /^Portal launch/ }).click();
 	await expect(page.getByRole('button', { name: 'Issue list' })).toBeVisible();
 	expect(state.cycles).toEqual([]);
 	await page.getByRole('button', { name: 'Gantt chart' }).click();
 	await expect.poll(() => state.cycles).toEqual(['/api/workspaces/test/teams/t1/cycles']);
 	await page.getByRole('button', { name: 'Project actions' }).click();
-	await page.getByRole('button', { name: 'Delete project', exact: true }).click();
+	await page.getByRole('menuitem', { name: 'Delete project', exact: true }).click();
 	await expect(page.getByRole('dialog')).toContainText('Portal launch');
 	expect(state.writes).not.toContain('DELETE');
 	await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -186,4 +186,28 @@ test('cycle metadata edits and activation preserve issue scope when PATCH omits 
 	expect(changes[0]).toMatchObject({ name: 'Customer release' });
 	expect(changes[1]).toEqual({ status: 'active' });
 	await expect(editedRow.getByText('1 scope', { exact: true })).toBeVisible();
+});
+
+test('delivery shortcut, project actions and view history stay addressable', async ({ page }) => {
+	await setup(page, { devMachinesEnabled: false });
+	await page.goto('/test/projects');
+	await page.getByRole('link', { name: 'Delivery for Portal launch', exact: true }).click();
+	await expect(page).toHaveURL(/projects\/p1\?view=delivery$/);
+	await expect(page.getByRole('button', { name: 'Delivery', exact: true })).toHaveAttribute('aria-pressed', 'true');
+	await page.reload();
+	await expect(page.getByRole('button', { name: 'Delivery', exact: true })).toHaveAttribute('aria-pressed', 'true');
+	await page.getByRole('button', { name: 'Issue list' }).click();
+	await expect(page).toHaveURL(/projects\/p1$/);
+	await page.goBack();
+	await expect(page.getByRole('button', { name: 'Delivery', exact: true })).toHaveAttribute('aria-pressed', 'true');
+	await page.goForward();
+	await expect(page.getByRole('button', { name: 'Issue list' })).toHaveAttribute('aria-pressed', 'true');
+	const actions = page.getByRole('button', { name: 'Project actions' });
+	await actions.focus();
+	await actions.press('ArrowDown');
+	await expect(page.getByRole('menuitem', { name: 'Delivery', exact: true })).toBeFocused();
+	await page.keyboard.press('ArrowDown');
+	await expect(page.getByRole('menuitem', { name: 'Testing', exact: true })).toBeFocused();
+	await page.keyboard.press('Enter');
+	await expect(page).toHaveURL(/view=delivery&section=testing$/);
 });

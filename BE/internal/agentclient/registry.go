@@ -26,6 +26,12 @@ type planUpdate struct {
 	Version int                 `json:"version" validate:"required,min=0"`
 }
 
+type planItemsUpdate struct {
+	Version    int                              `json:"version" validate:"required,min=0"`
+	Milestones *domain.DeliveryMilestoneChanges `json:"milestones,omitempty"`
+	TestCases  *domain.DeliveryTestCaseChanges  `json:"test_cases,omitempty"`
+}
+
 var operations = buildRegistry()
 
 func buildRegistry() map[string]Operation {
@@ -71,6 +77,8 @@ func buildRegistry() map[string]Operation {
 	add("issues.create_subissue", "POST", "/issues/:id/sub-issues", dto.CreateSubIssueRequest{})
 	add("cycles.complete", "POST", "/teams/:team_id/cycles/:id/complete", dto.CompleteCycleRequest{})
 	add("delivery.get", "GET", "/projects/:id/delivery-plan", nil)
+	add("delivery.summary", "GET", "/projects/:id/delivery-plan/summary", nil)
+	add("delivery.items.update", "PATCH", "/projects/:id/delivery-plan/items", planItemsUpdate{})
 	add("delivery.update", "PATCH", "/projects/:id/delivery-plan", planUpdate{})
 	// Workspace administrative operations retain backend role checks and full scope.
 	add("workspace.get", "GET", "", nil)
@@ -267,24 +275,18 @@ func Schema(name string) (any, error) {
 				planProperties[key].(map[string]any)["maxLength"] = max
 			}
 			for _, key := range []string{"milestones", "test_cases"} {
-				array := planProperties[key].(map[string]any)
-				array["maxItems"] = 200
-				item := array["items"].(map[string]any)
-				item["required"] = []string{"id", "title", "status"}
-				props := item["properties"].(map[string]any)
-				props["id"].(map[string]any)["minLength"] = 1
-				props["id"].(map[string]any)["maxLength"] = 100
-				props["title"].(map[string]any)["minLength"] = 1
-				props["title"].(map[string]any)["maxLength"] = 300
-				if key == "milestones" {
-					props["status"].(map[string]any)["enum"] = []string{"planned", "in_progress", "done"}
-				} else {
-					props["status"].(map[string]any)["enum"] = []string{"not_run", "passed", "failed", "blocked"}
-					props["evidence"].(map[string]any)["description"] = "Required and nonempty when passed or failed"
-					for field, max := range map[string]int{"steps": 10000, "expected_result": 5000, "evidence": 10000} {
-						props[field].(map[string]any)["maxLength"] = max
-					}
-				}
+				configureDeliveryArray(planProperties[key].(map[string]any), key)
+			}
+		}
+		if name == "delivery.items.update" {
+			bodyProperties := p["body"].(map[string]any)["properties"].(map[string]any)
+			for _, key := range []string{"milestones", "test_cases"} {
+				changes := bodyProperties[key].(map[string]any)["properties"].(map[string]any)
+				configureDeliveryArray(changes["upsert"].(map[string]any), key)
+				remove := changes["remove"].(map[string]any)
+				remove["maxItems"] = 200
+				remove["items"].(map[string]any)["minLength"] = 1
+				remove["items"].(map[string]any)["maxLength"] = 100
 			}
 		}
 		required = append(required, "body")
@@ -384,4 +386,24 @@ func typeSchema(t reflect.Type) map[string]any {
 		}
 	}
 	return s
+}
+
+func configureDeliveryArray(array map[string]any, kind string) {
+	array["maxItems"] = 200
+	item := array["items"].(map[string]any)
+	item["required"] = []string{"id", "title", "status"}
+	props := item["properties"].(map[string]any)
+	props["id"].(map[string]any)["minLength"] = 1
+	props["id"].(map[string]any)["maxLength"] = 100
+	props["title"].(map[string]any)["minLength"] = 1
+	props["title"].(map[string]any)["maxLength"] = 300
+	if kind == "milestones" {
+		props["status"].(map[string]any)["enum"] = []string{"planned", "in_progress", "done"}
+	} else {
+		props["status"].(map[string]any)["enum"] = []string{"not_run", "passed", "failed", "blocked"}
+		props["evidence"].(map[string]any)["description"] = "Required and nonempty when passed or failed"
+		for field, max := range map[string]int{"steps": 10000, "expected_result": 5000, "evidence": 10000} {
+			props[field].(map[string]any)["maxLength"] = max
+		}
+	}
 }

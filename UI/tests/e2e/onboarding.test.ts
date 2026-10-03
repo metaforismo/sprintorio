@@ -98,7 +98,7 @@ test('first issue continues after team creation and preserves both failed drafts
 	expect(teamAttempts).toBe(2);
 	expect(issueAttempts).toBe(2);
 	await page.getByRole('button', { name: 'Workspaces', exact: true }).click();
-	await page.getByRole('button', { name: 'Create workspace', exact: true }).click();
+	await page.getByRole('menuitem', { name: 'Create workspace', exact: true }).click();
 	const workspaceSlug = page.getByRole('dialog').getByLabel('Workspace URL', { exact: true });
 	await workspaceSlug.pressSequentially('my-team-');
 	await expect(workspaceSlug).toHaveValue('my-team-');
@@ -109,7 +109,7 @@ test('first issue continues after team creation and preserves both failed drafts
 	await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
 	await expect(page.getByRole('button', { name: 'Workspaces', exact: true })).toBeFocused();
 	await page.getByRole('button', { name: 'Workspaces', exact: true }).click();
-	await page.getByRole('button', { name: 'Create workspace', exact: true }).click();
+	await page.getByRole('menuitem', { name: 'Create workspace', exact: true }).click();
 	await expect(page.getByRole('dialog').getByLabel('Workspace name', { exact: true })).toBeFocused();
 	await expect(workspaceSlug).toHaveValue('my-team');
 });
@@ -138,4 +138,56 @@ test('workspace setup retries a failed list without redirecting an authenticated
 	await expect(workspaceSlug).toHaveValue('my-team-');
 	await workspaceSlug.press('Tab');
 	await expect(workspaceSlug).toHaveValue('my-team');
+});
+
+test('workspace creation locks a pending request and retains the draft after failure', async ({ page }) => {
+	let started = false;
+	let attempts = 0;
+	let release!: () => void;
+	const pending = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	await page.route('**://*/api/**', async (route) => {
+		const request = route.request();
+		const path = new URL(request.url()).pathname;
+		if (path === '/api/auth/me') return route.fulfill({ json: user });
+		if (path === '/api/preferences') return route.fulfill({ json: {} });
+		if (path === '/api/workspaces' && request.method() === 'POST') {
+			attempts++;
+			started = true;
+			await pending;
+			return route.fulfill({ status: 409, json: { error: { message: 'URL already used' } } });
+		}
+		if (path === '/api/workspaces') return route.fulfill({ json: [workspace] });
+		if (path === '/api/workspaces/test') return route.fulfill({ json: workspace });
+		if (path === '/api/notifications') return route.fulfill({ json: { notifications: [], unread_count: 0 } });
+		return route.fulfill({ json: [] });
+	});
+	await page.goto('/test/inbox');
+	const trigger = page.getByRole('button', { name: 'Workspaces', exact: true });
+	await trigger.focus();
+	await trigger.press('ArrowDown');
+	await expect(page.getByRole('menuitem', { name: /Ada workspace/ })).toBeFocused();
+	await page.keyboard.press('End');
+	await page.keyboard.press('Enter');
+	const dialog = page.getByRole('dialog');
+	await dialog.getByLabel('Workspace name', { exact: true }).fill('Client work');
+	await dialog.getByRole('button', { name: 'Create workspace', exact: true }).click();
+	try {
+		await expect.poll(() => started).toBe(true);
+		await page.keyboard.press('Escape');
+		await expect(dialog).toBeVisible();
+		await expect(dialog.locator('form')).toHaveAttribute('aria-busy', 'true');
+		await expect(dialog.getByLabel('Workspace name', { exact: true })).toBeDisabled();
+		await expect(dialog.getByRole('button', { name: 'Creating...', exact: true })).toBeDisabled();
+	} finally {
+		release();
+	}
+	await expect(page.locator('.app-toast-shell').filter({ hasText: 'URL already used' })).toBeVisible();
+	await expect(dialog.getByLabel('Workspace name', { exact: true })).toHaveValue('Client work');
+	await expect(dialog.getByLabel('Workspace URL', { exact: true })).toHaveValue('client-work');
+	await expect(dialog.getByLabel('Workspace name', { exact: true })).toBeEnabled();
+	expect(attempts).toBe(1);
+	await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+	await expect(trigger).toBeFocused();
 });
