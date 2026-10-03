@@ -40,3 +40,28 @@ claim that these dependencies are safe for other consumers.
 
 See [TESTING.md](TESTING.md) for reproducible commands and the distinction between
 application checks and optional infrastructure checks.
+
+## Agent-workflow revision
+
+The earlier platform evidence above predates this agent-workflow revision. The
+following results keep local fixtures, real API checks, client accounts and CI
+as separate gates.
+
+| Check | Result | Scope |
+| --- | --- | --- |
+| CLI/MCP client fixtures | PASS | Seven HTTP/protocol/transfer fixture tests plus a real stdin/stdout child-process test; compact output, write validation, CAS conflicts, auth, limits, redaction and exact Origin checks |
+| Operation catalogue | PASS | 145 fixed operations; three initial MCP tool schemas serialize to 879 JSON bytes; detailed operation schemas are requested on demand |
+| Client configuration documentation | PASS | Official formats cited for Claude Code, Cursor, Codex, Grok, Muse Code, OpenCode and Gemini CLI; configuration review is not account execution |
+| Independent MCP SDK smoke | PASS | Official Node MCP SDK 1.32.0 initialized and called tools over stdio and stateless Streamable HTTP against the actual local API |
+| Real API agent workflow | PASS | Synthetic PostgreSQL-backed workspace: MCP project/view creation, CLI issue creation, saved manual evidence, stale-version 409, read-write denial 403, immediate revocation 401, JWT-only token issuance, upload and private ZIP export with overwrite prevention |
+| Backend agent revision | PASS | Full Go race suite: 642 passed test executions, six infrastructure/fixture-dependent skips; token and resource isolation, membership changes, migrations and uploads exercised with PostgreSQL 17 |
+| UI agent revision | PASS | Production build, 20 unit tests and zero Svelte errors/warnings; 41 browser scenarios passed before the final collapsed-history refinement, which receives its own final CI check |
+| Manual Browser agent revision | PASS | Real API: saved-context copy feedback, dirty draft protection, project search by team key, client configuration selector, 390px form validation and no horizontal overflow |
+| External harness accounts/public HTTP endpoint | NOT RUN | No Claude/Cursor/Codex/Grok/Muse account connection or public deployment is claimed by local fixtures |
+| Agent packaging | NOT RUN in this record | Backend Dockerfile includes the client; workflow configuration compiles five OS/architecture targets and uploads artifacts; current CI success and release publication are not established here |
+
+Reproduce the client checks using `go test ./internal/agentclient ./cmd/sprintorio`
+from `BE`. [AGENTS_API.md](AGENTS_API.md) documents supported operations and limits;
+[docs/AGENT_CLIENTS.md](docs/AGENT_CLIENTS.md) separates integration configuration
+from tested client-account state. Required redistribution notices remain in
+[NOTICE](NOTICE).

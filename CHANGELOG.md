@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Accept valid UTF-8 text, Markdown and log attachments with detected charset parameters; retain MIME and extension checks.
+
+- Workspace agent tokens with read/write/full scopes, expiry, revocation and current-role enforcement; Settings → Agents provides setup examples.
+- One Go client for CLI, local stdio MCP and per-caller authenticated Streamable HTTP MCP, with 145 fixed operations and three compact discovery/schema/action tools.
+- Bounded JSON/file transfers, safe field projection, explicit pagination, structured errors and delivery-plan version checks across agent workflows.
+- Backend image packaging and CI client-artifact build configuration; official-format integration guides for common agent harnesses. Publishing and current CI results remain separate checks.
+
 - Approved A1 brand identity: clean SVG sources, favicon, wordmarks, and social card.
 - First-workspace guide, remembered accessible workspace, and draft-preserving team/issue/cycle/project creation.
 - Keyboard-accessible selectors with a single composed trigger, visible focus, and reduced-motion button feedback.

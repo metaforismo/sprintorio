@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { deliveryText } from './delivery-copy';
+	import { deliveryContext, deliveryReadiness } from './delivery-context';
 	import { beforeNavigate } from '$app/navigation';
 	import { getDeliveryPlan, saveDeliveryPlan } from '$lib/api/delivery-plan';
 	import { getWorkspace } from '$lib/api/workspaces';
@@ -20,6 +21,7 @@
 	let error = $state('');
 	let conflict = $state(false);
 	let notice = $state('');
+	let copying = $state(false);
 	let generation = 0;
 	let expandedTests = $state<string[]>([]);
 	let testSearch = $state('');
@@ -63,23 +65,7 @@
 	const blocked = $derived(plan.test_cases.filter((t) => t.status === 'blocked').length);
 	const pending = $derived(plan.test_cases.filter((t) => t.status === 'not_run').length);
 	const completed = $derived(plan.milestones.filter((m) => m.status === 'done').length);
-	const briefComplete = $derived(!!(plan.product_name.trim() && plan.objective.trim() && plan.success_metric.trim()));
-	const testDefinitionsComplete = $derived(
-		plan.test_cases.every((t) => !!(t.title.trim() && t.steps.trim() && t.expected_result.trim() && t.evidence.trim()))
-	);
-	const readiness = $derived(
-		failed
-			? t('Changes needed')
-			: blocked
-				? t('Testing blocked')
-				: !plan.test_cases.length
-					? t('No tests recorded')
-					: pending
-						? t('Testing pending')
-						: !briefComplete || !testDefinitionsComplete || completed < plan.milestones.length
-							? t('Delivery work pending')
-							: t('Ready for review')
-	);
+	const readiness = $derived(t(deliveryReadiness(plan)));
 	const fieldClass =
 		'w-full rounded-md border border-[var(--app-border)] bg-[var(--color-bg-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] disabled:opacity-70';
 
@@ -108,6 +94,7 @@
 		plan = emptyDeliveryPlan();
 		saved = '';
 		canEdit = false;
+		copying = false;
 		saving = false;
 		conflict = false;
 		void load(s, id, request);
@@ -128,6 +115,21 @@
 		plan = JSON.parse(saved);
 		error = conflict ? t('Someone saved a newer plan. Reload the latest version before editing again.') : '';
 		notice = '';
+	}
+	async function copyContext() {
+		if (copying || saving || dirty || saved === '' || conflict) return;
+		const request = generation;
+		copying = true;
+		error = '';
+		notice = '';
+		try {
+			await navigator.clipboard.writeText(JSON.stringify(deliveryContext(slug, projectId, version, JSON.parse(saved))));
+			if (request === generation) notice = t('Saved context copied.');
+		} catch {
+			if (request === generation) error = t('Could not copy. Try again.');
+		} finally {
+			if (request === generation) copying = false;
+		}
 	}
 	function addMilestone() {
 		plan.milestones.push({ id: crypto.randomUUID(), title: '', due_date: '', status: 'planned' });
@@ -221,6 +223,8 @@
 					</p>
 				</div>
 				<div class="flex flex-wrap items-center gap-2">
+					<Button type="button" variant="outline" class="min-h-11" disabled={dirty || saving || copying || conflict} onclick={copyContext}
+						>{t('Copy context')}</Button>
 					{#if dirty}<span class="text-xs text-[var(--color-text-tertiary)]">{t('Unsaved changes')}</span>{/if}
 					{#if canEdit}<Button type="button" variant="outline" disabled={!dirty || saving} onclick={cancelChanges}
 							>{t('Cancel changes')}</Button

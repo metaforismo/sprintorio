@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
 	"github.com/metaforismo/sprintorio/BE/internal/domain"
 	"github.com/metaforismo/sprintorio/BE/pkg/assettoken"
-	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -305,4 +305,53 @@ func TestExtractProtectedAssetSourcesIgnoresExternalImages(t *testing.T) {
 
 	require.Len(t, sources, 1)
 	assert.Equal(t, assetID, sources[0].assetID)
+}
+
+func TestUploadDetectsUTF8DocumentsAndRejectsSpoofedExtensions(t *testing.T) {
+	cases := []struct {
+		name, content, wantType string
+		wantStatus              int
+	}{
+		{"requirements.txt", "Requisiti città: accesso consentito.\n", "text/plain", http.StatusOK},
+		{"requirements.md", "# Requisiti\nAccesso alla città.\n", "text/markdown", http.StatusOK},
+		{"requirements.markdown", "# Requisiti\nAccesso alla città.\n", "text/markdown", http.StatusOK},
+		{"build.log", "INFO: aggiornamento città completato.\n", "text/plain", http.StatusOK},
+		{"settings.json", `{"name":"città","enabled":true}`, "application/json", http.StatusOK},
+		{"spoofed.png", "Requisiti città: accesso consentito.\n", "", http.StatusBadRequest},
+		{"spoofed.json", "Requisiti città: accesso consentito.\n", "", http.StatusBadRequest},
+		{"spoofed.txt", "<!doctype html><html><body>unsafe</body></html>", "", http.StatusBadRequest},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			e := echo.New()
+			store := &memoryStorage{}
+			repo := &memoryAssetRepo{}
+			h := NewUploadHandler(store, repo, nil, "test-secret")
+			var body bytes.Buffer
+			writer := multipart.NewWriter(&body)
+			part, err := writer.CreateFormFile("file", test.name)
+			require.NoError(t, err)
+			_, err = io.WriteString(part, test.content)
+			require.NoError(t, err)
+			require.NoError(t, writer.Close())
+			req := httptest.NewRequest(http.MethodPost, "/api/workspaces/acme/upload", &body)
+			req.Header.Set(echo.HeaderContentType, writer.FormDataContentType())
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+			c.Set("workspace", &domain.Workspace{ID: uuid.New(), Slug: "acme"})
+			c.Set("user_id", uuid.New())
+			require.NoError(t, h.Upload(c))
+			require.Equal(t, test.wantStatus, rec.Code)
+			if test.wantStatus != http.StatusOK {
+				require.Empty(t, repo.assets)
+				require.Empty(t, store.files)
+				return
+			}
+			require.Len(t, repo.assets, 1)
+			for _, asset := range repo.assets {
+				require.Equal(t, test.wantType, asset.ContentType)
+				require.Equal(t, test.content, store.files[asset.StorageKey])
+			}
+		})
+	}
 }

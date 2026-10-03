@@ -1,4 +1,7 @@
 const italian: Record<string, string> = {
+	'Copy context': 'Copia contesto',
+	'Saved context copied.': 'Contesto salvato copiato.',
+	'Could not copy. Try again.': 'Impossibile copiare. Riprova.',
 	'Changes needed': 'Modifiche necessarie',
 	'Testing blocked': 'Test bloccati',
 	'No tests recorded': 'Nessun test registrato',

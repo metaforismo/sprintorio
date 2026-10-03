@@ -27,6 +27,27 @@ Plans are stored in PostgreSQL, scoped to the workspace, and included in workspa
 
 Create your workspace, add a team, and write the first issue. The first-use guide opens each next step and can be dismissed. Project and team forms preserve failed drafts and offer retry. Add existing registered accounts from **Settings → Members**; email invitations are not implemented.
 
+## Connect an agent
+
+Open **Settings → Agents**, choose a named token with `read`, `write` or `full` scope, and copy its value once. Scopes retain your current workspace role; they do not grant owner access. Revoke tokens from the same page. Agent tools cannot manage tokens or global server settings.
+
+Build the client from this checkout:
+
+```sh
+cd BE
+go build -o ../sprintorio ./cmd/sprintorio
+cd ..
+./sprintorio discover
+```
+
+Inject `SPRINTORIO_URL`, `SPRINTORIO_WORKSPACE` and `SPRINTORIO_TOKEN` through your environment or secret manager. Then use the CLI or launch `sprintorio mcp` from a local MCP harness. For remote clients, `sprintorio mcp-http` exposes an authenticated `/mcp` endpoint on loopback by default; public access requires your own HTTPS deployment.
+
+The client exposes 145 fixed workspace operations through three MCP tools: discover operations, request one schema, then execute an action. Compact JSON, explicit pagination and versioned delivery updates keep agent workflows reviewable. CLI uploads and ZIP exports are bounded. Optional machine operations remain subject to server capability and policy.
+
+See [Agent API](AGENTS_API.md) for commands, permissions, limits and delivery-test workflows, and [client configurations](docs/AGENT_CLIENTS.md) for Claude Code, Cursor, Codex, Grok, Muse Code, OpenCode and Gemini CLI. Configuration examples are documented integrations; external account connections are a separate verification step.
+
+The backend image includes `/usr/local/bin/sprintorio`. CI configuration also builds Linux, macOS and Windows clients as workflow artifacts; this does not imply a published release or a successful run for the current revision.
+
 ## Other capabilities
 
 | Area | Included |
@@ -37,6 +58,7 @@ Create your workspace, add a team, and write the first issue. The first-use guid
 | Development | GitHub repository linking, branch/commit/PR activity, and configurable status transitions |
 | Portability | Workspace export/import with uploaded assets and regenerated entity IDs |
 | Reporting | Workspace/team overviews and issue insights |
+| Agents | Workspace tokens, CLI, local stdio MCP, and authenticated remote HTTP MCP |
 
 Dev Machines are an optional subsystem for development environments and agent runs. They are disabled by default and require dedicated host configuration. See [TECHNICAL.md](TECHNICAL.md) before enabling them.
 

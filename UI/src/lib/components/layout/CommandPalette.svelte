@@ -9,7 +9,9 @@
 	import { LoaderCircle } from 'lucide-svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale, setLocale } from '$lib/paraglide/runtime.js';
-	import { onMount } from 'svelte';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import { Button } from '$lib/components/ui/button';
+	import { rankCommands } from '$lib/utils/command-search';
 
 	let {
 		slug,
@@ -26,25 +28,19 @@
 	let selectedIndex = $state(0);
 	let issueResults = $state<Issue[]>([]);
 	let issueLoading = $state(false);
-	let debounceTimer: ReturnType<typeof setTimeout> | undefined;
-
-	const ANIM_DURATION = 100;
-	let visible = $state(false);
-	let closing = false;
-
-	onMount(() => {
-		requestAnimationFrame(() => {
-			requestAnimationFrame(() => {
-				visible = true;
-			});
-		});
-	});
+	let issueError = $state(false);
+	let searchGeneration = 0;
+	let input: HTMLInputElement;
+	let open = $state(true);
+	let closed = false;
+	const previousFocus = typeof document !== 'undefined' ? document.activeElement as HTMLElement | null : null;
 
 	function close() {
-		if (closing) return;
-		closing = true;
-		visible = false;
-		setTimeout(onclose, ANIM_DURATION);
+		if (closed) return;
+		closed = true;
+		searchGeneration++;
+		open = false;
+		onclose();
 	}
 
 	interface CommandItem {
@@ -73,8 +69,7 @@
 			}))
 		];
 
-		if (!search) return items;
-		return items.filter((i) => i.label.toLowerCase().includes(search.toLowerCase()));
+		return rankCommands(items, search);
 	});
 
 	const totalItems = $derived(commands.length + issueResults.length);
@@ -90,26 +85,38 @@
 		return query.length >= 2 || hanRegex.test(query);
 	}
 
-	$effect(() => {
-		if (canSearchIssues(search)) {
-			clearTimeout(debounceTimer);
-			debounceTimer = setTimeout(async () => {
-				issueLoading = true;
-				try {
-					const res = await listIssues(slug, { search, per_page: '12' });
-					issueResults = res.data;
-				} catch {
-					issueResults = [];
-				} finally {
-					issueLoading = false;
-				}
-			}, 300);
-		} else {
-			issueResults = [];
-			issueLoading = false;
+	async function searchIssues(query: string, workspace: string, request: number) {
+		try {
+			const result = await listIssues(workspace, { search: query, per_page: '12' });
+			if (request === searchGeneration && workspace === slug) issueResults = result.data;
+		} catch {
+			if (request === searchGeneration) issueError = true;
+		} finally {
+			if (request === searchGeneration) issueLoading = false;
 		}
+	}
+
+	$effect(() => {
+		const request = ++searchGeneration;
+		const query = search.trim();
+		const workspace = slug;
+		issueResults = [];
+		issueError = false;
+		const searchable = canSearchIssues(query);
+		issueLoading = searchable;
 		selectedIndex = 0;
+		const timer = searchable ? setTimeout(() => void searchIssues(query, workspace, request), 200) : undefined;
+		return () => {
+			clearTimeout(timer);
+			if (request === searchGeneration) searchGeneration++;
+		};
 	});
+
+	function retrySearch() {
+		issueError = false;
+		issueLoading = true;
+		void searchIssues(search.trim(), slug, ++searchGeneration);
+	}
 
 	function navigate(path: string) {
 		goto(path);
@@ -203,9 +210,8 @@
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
-		if (e.key === 'Escape') {
-			close();
-		} else if (e.key === 'ArrowDown') {
+		if (e.target !== input || e.isComposing || e.keyCode === 229) return;
+		if (e.key === 'ArrowDown') {
 			e.preventDefault();
 			if (totalItems > 0) selectedIndex = Math.min(selectedIndex + 1, totalItems - 1);
 		} else if (e.key === 'ArrowUp') {
@@ -215,45 +221,55 @@
 			e.preventDefault();
 			activateIndex(selectedIndex);
 		}
+		if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+			document.getElementById(`palette-option-${selectedIndex}`)?.scrollIntoView({ block: 'nearest' });
+		}
 	}
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="fixed inset-0 z-50 flex items-start justify-center px-3 pt-[6vh]" onkeydown={handleKeydown}>
-	<!-- Backdrop -->
-	<button
-		class="fixed inset-0 cursor-default"
-		style="background: rgba(0,0,0,{visible ? 0.5 : 0}); transition: background {ANIM_DURATION}ms ease;"
-		onclick={close}
-		tabindex={-1}
-		aria-label={m['sidebar.cmd_close']()}
-	></button>
-
-	<!-- Dialog -->
-	<div
-		class="relative z-10 w-full max-w-4xl overflow-hidden rounded-xl border border-[var(--app-border)] bg-[var(--color-bg-secondary)] shadow-2xl"
-		style="opacity: {visible ? 1 : 0}; transform: scale({visible
-			? 1
-			: 0.95}); transition: opacity {ANIM_DURATION}ms ease, transform {ANIM_DURATION}ms ease;"
+<Dialog.Root bind:open onOpenChange={(value) => { if (!value) close(); }}>
+	<Dialog.Content
+		animate={false}
+		showCloseButton={false}
+		onkeydown={handleKeydown}
+		onOpenAutoFocus={(event) => { event.preventDefault(); input?.focus(); }}
+		onCloseAutoFocus={(event) => { event.preventDefault(); previousFocus?.focus(); }}
+		onEscapeKeydown={(event) => {
+			event.preventDefault();
+			if (search) search = '';
+			else close();
+		}}
+		class="top-[6vh] max-w-[calc(100%-1.5rem)] gap-0 border border-[var(--app-border)] bg-[var(--color-bg-secondary)] p-0 shadow-2xl sm:max-w-2xl"
 	>
-		<div class="grid md:grid-cols-[minmax(0,1fr)_15rem]">
+		<Dialog.Title class="sr-only">{m['sidebar.type_command']()}</Dialog.Title>
+		<Dialog.Description class="sr-only">{m['sidebar.cmd_search_matches_desc']()}</Dialog.Description>
+		<div>
 			<div class="min-w-0">
-				<!-- svelte-ignore a11y_autofocus -->
 				<input
 					type="text"
 					bind:value={search}
 					placeholder={m['sidebar.type_command']()}
-					autofocus
+					bind:this={input}
+					role="combobox"
+					aria-label={m['sidebar.type_command']()}
+					aria-expanded="true"
+					aria-controls="palette-results"
+					aria-autocomplete="list"
+					aria-activedescendant={totalItems ? `palette-option-${selectedIndex}` : undefined}
 					class="w-full border-b border-[var(--app-border)] bg-transparent px-4 py-4 text-sm text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
 				/>
-				<div class="max-h-[68vh] min-h-[28rem] overflow-y-auto py-2">
+				<div id="palette-results" role="listbox" aria-label={m['sidebar.search_matches']()} class="max-h-[60vh] min-h-40 overflow-y-auto py-2">
 					{#if commands.length > 0}
 						<div class="px-3 py-1">
 							<span class="text-[10px] font-medium uppercase text-[var(--color-text-tertiary)]">{m['sidebar.commands']()}</span>
 						</div>
 						{#each commands as cmd, i}
 							<button
-								class="flex w-full items-center gap-3 px-4 py-2 text-left text-sm {i === selectedIndex
+								id={`palette-option-${i}`}
+								role="option"
+								aria-selected={i === selectedIndex}
+								tabindex={-1}
+								class="flex min-h-11 w-full items-center gap-3 px-4 py-2 text-left text-sm {i === selectedIndex
 									? 'bg-[var(--color-bg-hover)] text-[var(--color-text-primary)]'
 									: 'text-[var(--color-text-secondary)]'}"
 								onmouseenter={() => (selectedIndex = i)}
@@ -278,7 +294,7 @@
 						{/each}
 					{/if}
 
-					{#if canSearchIssues(search) && (issueLoading || issueResults.length > 0 || commands.length > 0)}
+					{#if canSearchIssues(search) && (issueLoading || issueError || issueResults.length > 0 || commands.length > 0)}
 						<div class="px-3 py-1 {commands.length > 0 ? 'mt-1 border-t border-[var(--app-border)] pt-2' : ''}">
 							<span class="text-[10px] font-medium uppercase text-[var(--color-text-tertiary)]">{m['sidebar.issues']()}</span>
 						</div>
@@ -286,12 +302,21 @@
 							<div class="flex items-center justify-center py-4">
 								<LoaderCircle size={16} class="animate-spin text-[var(--color-text-tertiary)]" />
 							</div>
+						{:else if issueError}
+							<div role="alert" class="flex items-center justify-between gap-3 px-4 py-2 text-sm">
+								<span>{getLocale() === 'it' ? 'Ricerca non disponibile.' : 'Search unavailable.'}</span>
+								<Button variant="outline" class="min-h-11" onclick={retrySearch}>{getLocale() === 'it' ? 'Riprova' : 'Retry'}</Button>
+							</div>
 						{:else if issueResults.length > 0}
 							{#each issueResults as issue, i}
 								{@const idx = commands.length + i}
 								{@const snippet = descriptionSnippet(issue.description, search)}
 								<button
-									class="flex w-full items-start gap-2 px-4 py-2 text-left text-sm {idx === selectedIndex
+									id={`palette-option-${idx}`}
+									role="option"
+									aria-selected={idx === selectedIndex}
+									tabindex={-1}
+									class="flex min-h-11 w-full items-start gap-2 px-4 py-2 text-left text-sm {idx === selectedIndex
 										? 'bg-[var(--color-bg-hover)] text-[var(--color-text-primary)]'
 										: 'text-[var(--color-text-secondary)]'}"
 									onmouseenter={() => (selectedIndex = idx)}
@@ -329,40 +354,17 @@
 						{/if}
 					{/if}
 
-					{#if commands.length === 0 && issueResults.length === 0 && !issueLoading}
+					{#if commands.length === 0 && issueResults.length === 0 && !issueLoading && !issueError}
 						<p class="px-4 py-2 text-sm text-[var(--color-text-tertiary)]">{m['sidebar.no_results']()}</p>
 					{/if}
 				</div>
 			</div>
 
-			<aside class="hidden border-l border-[var(--app-border)] bg-[var(--color-bg-tertiary)]/35 p-4 md:block">
-				<div class="mb-3 text-[10px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">
-					Keyboard
-				</div>
-				<div class="space-y-3">
-					{#each shortcuts as shortcut}
-						<div class="flex items-center justify-between gap-3 text-xs text-[var(--color-text-secondary)]">
-							<span>{shortcut.label}</span>
-							<div class="flex shrink-0 items-center gap-1">
-								{#each shortcut.keys as key}
-									<Kbd
-										class="border border-[var(--app-border)] bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]"
-										>{key}</Kbd
-									>
-								{/each}
-							</div>
-						</div>
-					{/each}
-				</div>
-
-				<div class="mt-6 rounded-lg border border-[var(--app-border)] bg-[var(--color-bg-secondary)]/70 p-3">
-					<div class="text-xs font-medium text-[var(--color-text-primary)]">{m['sidebar.search_matches']()}</div>
-					<p class="mt-1 text-xs leading-5 text-[var(--color-text-tertiary)]">
-						{m['sidebar.cmd_search_matches_desc']()}
-						labels, cycle, due date, team, and priority. Description matches include a short highlighted snippet.
-					</p>
-				</div>
-			</aside>
 		</div>
-	</div>
-</div>
+		<div class="flex flex-wrap gap-4 border-t border-[var(--app-border)] px-4 py-3 text-xs text-[var(--color-text-tertiary)]">
+			{#each shortcuts as shortcut}
+				<span class="inline-flex items-center gap-1.5">{#each shortcut.keys as key}<Kbd>{key}</Kbd>{/each}{shortcut.label}</span>
+			{/each}
+		</div>
+	</Dialog.Content>
+</Dialog.Root>

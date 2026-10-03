@@ -721,6 +721,7 @@
 						{#if projects.length === 0}<Button variant="outline" size="sm" onclick={() => goto(`/${slug}/projects`)}
 								>{copy.project}</Button
 							>{/if}
+						<Button variant="outline" size="sm" class="min-h-11 sm:min-h-7" onclick={() => goto(`/${slug}/settings/agents`)}>{copy.agents}</Button>
 						{#if members.length < 2 && ['owner', 'admin'].includes(workspace.current_user_role)}<Button
 								variant="outline"
 								size="sm"

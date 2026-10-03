@@ -31,7 +31,15 @@ func TestDevMachineMigrationsAreConsolidated(t *testing.T) {
 	for version := 35; version <= 36; version++ {
 		matches, globErr := filepath.Glob(fmt.Sprintf("%06d_*.sql", version))
 		require.NoError(t, globErr)
-		require.Empty(t, matches)
+		// These versions previously held split Dev Machine migrations. New,
+		// unrelated migrations may reuse the numbers after consolidation.
+		for _, path := range matches {
+			migrationSQL, readErr := os.ReadFile(path)
+			require.NoError(t, readErr)
+			require.NotRegexp(t,
+				`(?i)\b(?:CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?|ALTER\s+(?:TABLE|TYPE)|DROP\s+(?:TABLE|TYPE)(?:\s+IF\s+EXISTS)?)\s+(?:public\.)?dev_machine`,
+				string(migrationSQL), "Dev Machine DDL must remain consolidated in migration 33: %s", path)
+		}
 	}
 
 	upSQL := string(up)
@@ -99,8 +107,16 @@ func TestDevMachineMigrationRoundTripAndTenantConstraints(t *testing.T) {
 	)`).Scan(&retainedConstraintCount))
 	require.Zero(t, retainedConstraintCount)
 
+	// Rollback drops enum types and reapplication creates new PostgreSQL OIDs.
+	// A reused pgx connection can retain prepared statements referring to the
+	// dropped enum. Reconnect so the second schema inspection is independent
+	// of the first migration's statement and type caches.
+	require.NoError(t, db.Close())
 	require.NoError(t, migrator.Steps(1))
 	requireMigrationVersion(t, migrator, 33)
+	db, err = sql.Open("pgx", testURL)
+	require.NoError(t, err)
+	require.NoError(t, db.PingContext(ctx))
 	requireFinalDevMachineSchema(t, db)
 	var machineCount int
 	require.NoError(t, db.QueryRow(`SELECT COUNT(*) FROM dev_machines`).Scan(&machineCount))
